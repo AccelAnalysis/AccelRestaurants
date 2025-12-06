@@ -9,124 +9,24 @@ import {
   ListChecks, Calendar,
   TrendingUp, Globe, AlertCircle, Music,
   PieChart as PieIcon, BarChart as BarIcon, Activity, User, Mic, Cloud, 
-  Link as LinkIcon, Edit3, ArrowUpRight, Rocket, Copy, X,
+  Link as LinkIcon, Edit3, ArrowUpRight, Rocket, Copy, X, Megaphone,
   Film, Frame, BatteryCharging, FileSpreadsheet, CloudLightning, Code, Database
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, 
-  CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie 
+  CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
+import { api } from './lib/api';
+import type { 
+  Organization, Location, Screen, Slide, TileInstance, 
+  MenuSection, MenuItem, Campaign, TileTemplate, TileTypeKey, DataBinding, RenderContext 
+} from './types';
 
 /**
  * --- ACCEL RESTAURANTS™ PLATFORM (FINAL) ---
  * Complete Production-Level Platform
  * Version: 3.0.0-gold
  */
-
-// --- 1. CORE TYPES & INTERFACES ---
-
-interface RenderContext {
-  menuItems: MenuItem[];
-  campaigns: Campaign[];
-}
-
-interface Organization {
-  id: string;
-  name: string;
-  plan: 'Free' | 'Growth' | 'Enterprise';
-}
-
-interface Location {
-  id: string;
-  orgId: string;
-  name: string;
-  screens: Screen[];
-}
-
-interface Screen {
-  id: string;
-  locationId: string;
-  name: string;
-  rotationMs: number;
-  slides: string[];
-  transition?: 'fade' | 'slide' | 'none';
-  algorithm?: 'loop' | 'random' | 'custom';
-  customSequence?: string[];
-}
-
-interface Slide {
-  id: string;
-  orgId: string;
-  name: string;
-  background: string;
-  elements: TileInstance[];
-  width: number;
-  height: number;
-  duration?: number;
-}
-
-interface TileInstance {
-  id: string;
-  type: TileTypeKey;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  zIndex: number;
-  opacity: number;
-  props: Record<string, any>;
-  binding?: DataBinding;
-}
-
-interface DataBinding {
-  source: 'menu' | 'campaign' | 'none';
-  itemId?: string;
-  field?: string;
-}
-
-interface MenuItem {
-  id: string;
-  sectionId: string;
-  name: string;
-  description: string;
-  price: string;
-  imageUrl: string;
-  calories?: string;
-}
-
-interface MenuSection {
-  id: string;
-  name: string;
-  order: number;
-}
-
-interface Campaign {
-  id: string;
-  name: string;
-  offerCode: string;
-  status: 'Active' | 'Scheduled' | 'Ended';
-  radiusMiles: number;
-  startDate: string;
-  endDate: string;
-}
-
-type TileTypeKey = 
-  | '3dmodel' | 'audio' | 'avatar' | 'bar' | 'camera' | 'carousel' | 'chart' | 'clock' | 'countdown' 
-  | 'crypto' | 'custom' | 'date' | 'emojiWeather' | 'flipboard' | 'gif' | 'gradient' | 'html' | 'icon' 
-  | 'iframe' | 'image' | 'list' | 'lottie' | 'map' | 'marquee' | 'menu' | 'mic' | 'news' | 'openai' 
-  | 'particles' | 'pie' | 'progress' | 'qrcode' | 'quote' | 'random_image' | 'rss' | 'scene' 
-  | 'shape' | 'sheetcell' | 'social' | 'status' | 'stock' | 'table' | 'text' | 'timer' | 'video' 
-  | 'vimeo' | 'weather' | 'weather_detailed' | 'weather_icon' | 'youtube' | 'button' | 'calendar' | 'alert' | 'link' | 'gallery';
-
-interface TileTemplate {
-  id: string;
-  orgId: string | 'ACCEL_GLOBAL';
-  type: TileTypeKey;
-  name: string;
-  tags: string[];
-  defaultProps: any;
-  defaultDimensions?: { w: number, h: number };
-}
 
 // --- 2. THE STRICT 46-TILE REGISTRY ---
 
@@ -204,57 +104,114 @@ const TILE_REGISTRY: Record<TileTypeKey, { label: string; icon: any; defaultProp
 // --- 3. MOCK DATA INITIALIZATION ---
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
-const INITIAL_ORG: Organization = { id: 'org_01', name: 'Demo Restaurant Group', plan: 'Growth' };
-
-const INITIAL_TEMPLATES: TileTemplate[] = [
-  { id: 't_01', orgId: 'ACCEL_GLOBAL', type: 'text', name: 'Price Tag - Large', tags: ['price', 'menu'], defaultProps: { content: '$12.99', fontSize: 64, color: '#fbbf24', fontWeight: 'bold' }, defaultDimensions: { w: 200, h: 80 } },
-  { id: 't_02', orgId: 'ACCEL_GLOBAL', type: 'text', name: 'Menu Item Title', tags: ['menu'], defaultProps: { content: 'Cheeseburger', fontSize: 32, color: '#ffffff', fontWeight: 'bold' }, defaultDimensions: { w: 300, h: 50 } },
-];
-
-const INITIAL_SLIDES: Slide[] = [
-  { 
-    id: 'slide_01', orgId: 'org_01', name: 'Morning Menu', background: '#111827', width: 800, height: 450,
-    elements: [
-      { id: 'el_01', type: 'text', x: 50, y: 40, width: 400, height: 60, zIndex: 1, opacity: 1, props: { content: 'BREAKFAST SPECIAL', fontSize: 40, color: '#fbbf24', fontWeight: 'bold' } },
-      // Example of a bound element:
-      { id: 'el_02', type: 'text', x: 50, y: 120, width: 300, height: 40, zIndex: 1, opacity: 1, props: { content: 'Avocado Toast', fontSize: 24, color: '#fff' }, binding: { source: 'menu', itemId: 'item_01', field: 'name' } },
-      { id: 'el_03', type: 'text', x: 400, y: 120, width: 100, height: 40, zIndex: 1, opacity: 1, props: { content: '$8.50', fontSize: 24, color: '#fbbf24', textAlign: 'right' }, binding: { source: 'menu', itemId: 'item_01', field: 'price' } },
-    ] 
-  }
-];
-
-const INITIAL_LOCATIONS: Location[] = [
-  { id: 'loc_01', orgId: 'org_01', name: 'Downtown Branch', screens: [{ id: 'scr_01', locationId: 'loc_01', name: 'Main Menu Board', rotationMs: 10000, slides: ['slide_01'] }] }
-];
-
-const INITIAL_MENU_SECTIONS: MenuSection[] = [
-  { id: 'sec_01', name: 'Breakfast', order: 0 },
-  { id: 'sec_02', name: 'Burgers', order: 1 },
-];
-
-const INITIAL_MENU_ITEMS: MenuItem[] = [
-  { id: 'item_01', sectionId: 'sec_01', name: 'Avocado Toast', description: 'Sourdough, smashed avocado, chili flakes.', price: '8.50', imageUrl: 'https://placehold.co/100x100?text=Toast' },
-  { id: 'item_02', sectionId: 'sec_02', name: 'Classic Burger', description: 'Lettuce, tomato, onion, secret sauce.', price: '12.00', imageUrl: 'https://placehold.co/100x100?text=Burger' },
-];
 
 // --- 4. MAIN APPLICATION COMPONENT ---
 
-export default function AccelRestaurants_Platform() {
-  const [activeTab, setActiveTab] = useState<'screens'|'menu'|'kpi'>('screens');
-  const [locations, setLocations] = useState<Location[]>(INITIAL_LOCATIONS);
-  const [slides, setSlides] = useState<Slide[]>(INITIAL_SLIDES);
-  const [templates, setTemplates] = useState<TileTemplate[]>(INITIAL_TEMPLATES);
-  const [menuSections, setMenuSections] = useState<MenuSection[]>(INITIAL_MENU_SECTIONS);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
+function StandalonePlayer({ screenId }: { screenId: string }) {
+  const [data, setData] = useState<{ screen: Screen, slides: Slide[], menuItems: MenuItem[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getPublicScreen(screenId).then(d => {
+       if (d) setData(d);
+       else setError('Screen not found');
+    });
+  }, [screenId]);
+
+  if (error) return <div className="text-white flex items-center justify-center h-screen bg-black">{error}</div>;
+  if (!data) return <div className="text-white flex items-center justify-center h-screen bg-black">Loading Screen...</div>;
+
+  const renderContext: RenderContext = { menuItems: data.menuItems, campaigns: [] };
+
+  return (
+    <Player 
+      screen={data.screen} 
+      slides={data.slides} 
+      onClose={() => {}} 
+      renderContext={renderContext} 
+    />
+  );
+}
+
+function PlatformApp() {
+  const [activeTab, setActiveTab] = useState<'screens'|'menu'|'campaigns'|'kpi'>('screens');
   
-  const [activeLocationId, setActiveLocationId] = useState<string>(INITIAL_LOCATIONS[0].id);
+  // Data State
+  const [org, setOrg] = useState<Organization | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [templates, setTemplates] = useState<TileTemplate[]>([]);
+  const [menuSections, setMenuSections] = useState<MenuSection[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const [activeLocationId, setActiveLocationId] = useState<string | null>(null);
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
 
   const activeLocation = locations.find(l => l.id === activeLocationId);
   const activeSlide = slides.find(s => s.id === editingSlideId);
 
   // --- Global Context for Renderer ---
-  const renderContext = useMemo(() => ({ menuItems, campaigns: [] }), [menuItems]);
+  const renderContext = useMemo(() => ({ menuItems, campaigns }), [menuItems, campaigns]);
+
+  // --- Initial Load ---
+  useEffect(() => {
+    const init = async () => {
+      const orgs = await api.getOrganizations();
+      if (orgs.length > 0) {
+        const o = orgs[0];
+        setOrg(o);
+        const [locs, sls, men, tmpls, camps] = await Promise.all([
+          api.getLocations(o.id),
+          api.getSlides(o.id),
+          api.getMenu(o.id),
+          api.getTemplates(o.id),
+          api.getCampaigns(o.id)
+        ]);
+        setLocations(locs);
+        setSlides(sls);
+        setMenuSections(men.sections);
+        setMenuItems(men.items);
+        setTemplates(tmpls);
+        setCampaigns(camps);
+        if (locs.length > 0) setActiveLocationId(locs[0].id);
+      }
+      setIsLoading(false);
+    };
+    init();
+  }, []);
+
+  // --- Handlers ---
+  
+  const handleUpdateSlide = async (updated: Slide) => {
+      // Optimistic
+      setSlides(prev => prev.map(s => s.id === updated.id ? updated : s));
+      // API
+      await api.updateSlide(updated);
+  };
+
+  const handleCreateSlide = async () => {
+      if (!org) return;
+      const newSlideStub: Partial<Slide> = { name: 'New Slide', background: '#111827', width: 1920, height: 1080, elements: [] };
+      const created = await api.createSlide(org.id, newSlideStub);
+      if (created) {
+          setSlides(prev => [...prev, created]);
+          setEditingSlideId(created.id);
+      }
+  };
+
+  const handleUpdateLocation = async (updatedLoc: Location) => {
+      // Optimistic
+      setLocations(prev => prev.map(l => l.id === updatedLoc.id ? updatedLoc : l));
+      
+      for (const s of updatedLoc.screens) {
+          await api.updateScreen(s);
+      }
+  };
+
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-neutral-950 text-white">Loading Platform...</div>;
+  if (!org) return <div className="flex h-screen items-center justify-center bg-neutral-950 text-white">No Organization Found. Please run database seed.</div>;
 
   return (
     <div className="flex flex-col w-full h-screen bg-neutral-900 text-white font-sans overflow-hidden">
@@ -265,7 +222,7 @@ export default function AccelRestaurants_Platform() {
             <Layout size={24} />
             <div className="leading-tight">
               <h1 className="font-bold text-lg tracking-tight text-white">AccelRestaurants™</h1>
-              <p className="text-[10px] font-medium tracking-wider text-neutral-400">CLARITY. STRATEGY. EXECUTION.</p>
+              <p className="text-[10px] font-medium tracking-wider text-neutral-400">{org.name}</p>
             </div>
           </div>
           <div className="h-6 w-px bg-neutral-800 mx-2" />
@@ -273,6 +230,7 @@ export default function AccelRestaurants_Platform() {
             {[
               { id: 'screens', label: 'Screens', icon: Monitor },
               { id: 'menu', label: 'Menu Data', icon: Database },
+              { id: 'campaigns', label: 'Campaigns', icon: Megaphone },
               { id: 'kpi', label: 'Insights', icon: Activity }
             ].map(nav => (
               <button 
@@ -287,18 +245,14 @@ export default function AccelRestaurants_Platform() {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => {
+            onClick={async () => {
               const name = prompt("Enter new location name:");
               if (name) {
-                const newId = generateId();
-                const newLoc: Location = { 
-                  id: newId, 
-                  orgId: INITIAL_ORG.id, 
-                  name, 
-                  screens: [{ id: generateId(), locationId: newId, name: 'Main Screen', rotationMs: 10000, slides: [] }] 
-                };
-                setLocations([...locations, newLoc]);
-                setActiveLocationId(newId);
+                const newLoc = await api.createLocation(org.id, name);
+                if (newLoc) {
+                    setLocations([...locations, newLoc]);
+                    setActiveLocationId(newLoc.id);
+                }
               }
             }}
             className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 hover:text-white px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors"
@@ -308,7 +262,7 @@ export default function AccelRestaurants_Platform() {
           <div className="flex items-center gap-2 bg-neutral-800 px-3 py-1.5 rounded border border-neutral-700">
             <MapPin size={14} className="text-orange-500" />
             <select 
-              value={activeLocationId} 
+              value={activeLocationId || ''} 
               onChange={(e) => setActiveLocationId(e.target.value)} 
               className="bg-transparent text-sm outline-none text-neutral-200 min-w-[150px]"
             >
@@ -324,30 +278,85 @@ export default function AccelRestaurants_Platform() {
           editingSlideId && activeSlide ? (
             <SlideEditor 
               slide={activeSlide} 
-              onUpdate={(updated) => setSlides(prev => prev.map(s => s.id === updated.id ? updated : s))} 
+              onUpdate={handleUpdateSlide} 
               onClose={() => setEditingSlideId(null)}
               templates={templates}
-              onSaveTemplate={(t) => setTemplates(prev => [...prev, t])}
+              onSaveTemplate={async (t) => {
+                  await api.createTemplate(t);
+                  setTemplates(prev => [...prev, t]);
+              }}
               menuItems={menuItems}
               renderContext={renderContext}
+              campaigns={campaigns}
             />
           ) : (
-            <Dashboard 
-              location={activeLocation!} 
-              slides={slides} 
-              onEditSlide={setEditingSlideId}
-              onCreateSlide={() => setSlides([...slides, { id: generateId(), orgId: INITIAL_ORG.id, name: 'New Slide', background: '#111827', width: 800, height: 450, elements: [] }])}
-              onUpdateLocation={(updatedLoc) => setLocations(locations.map(l => l.id === updatedLoc.id ? updatedLoc : l))}
-              renderContext={renderContext}
-            />
+            activeLocation ? (
+                <Dashboard 
+                location={activeLocation} 
+                slides={slides} 
+                onEditSlide={setEditingSlideId}
+                onCreateSlide={handleCreateSlide}
+                onUpdateLocation={handleUpdateLocation}
+                renderContext={renderContext}
+                />
+            ) : <div className="p-8">No locations found. Create one to start.</div>
           )
         )}
         
-        {activeTab === 'menu' && <MenuModule sections={menuSections} items={menuItems} onUpdateSections={setMenuSections} onUpdateItems={setMenuItems} />}
+        {activeTab === 'menu' && (
+            <MenuModule 
+                sections={menuSections} 
+                items={menuItems} 
+                onUpdateSections={async (s) => {
+                    setMenuSections(s);
+                    for(const sec of s) {
+                        if(sec.id.length > 8) await api.updateMenuSection(sec); 
+                    }
+                }} 
+                onUpdateItems={async (items) => {
+                    setMenuItems(items);
+                    for(const i of items) {
+                         await api.updateMenuItem(i);
+                    }
+                }} 
+            />
+        )}
+        {activeTab === 'campaigns' && org && (
+          <CampaignsModule
+            campaigns={campaigns}
+            onUpdateCampaigns={async (newCampaigns) => {
+               setCampaigns(newCampaigns);
+               // Simple strategy: check which one changed. For now we assume the caller passes the whole list with one updated/added item
+               // In a real app we'd pass specific action.
+               // We can just iterate or rely on the fact that we edit one at a time.
+            }}
+            onSave={async (c) => {
+               if (campaigns.some(existing => existing.id === c.id)) {
+                 await api.updateCampaign(c);
+                 setCampaigns(prev => prev.map(x => x.id === c.id ? c : x));
+               } else {
+                 const created = await api.createCampaign(org.id, c);
+                 if (created) setCampaigns(prev => [...prev, created]);
+               }
+            }}
+          />
+        )}
         {activeTab === 'kpi' && <KPIModule />}
       </main>
     </div>
   );
+}
+
+export default function AccelRestaurants_Platform() {
+  // Simple Routing for Deployed Player (Hash-based for GitHub Pages compatibility)
+  const isPlayer = window.location.hash.startsWith('#/s/');
+  const playerScreenId = isPlayer ? window.location.hash.split('#/s/')[1] : null;
+
+  if (isPlayer && playerScreenId) {
+     return <StandalonePlayer screenId={playerScreenId} />;
+  }
+
+  return <PlatformApp />;
 }
 
 // --- 5. MODULE: MENU DATA ---
@@ -440,6 +449,116 @@ function MenuModule({ sections, items, onUpdateSections, onUpdateItems }: {
           <div className="h-full flex flex-col items-center justify-center text-neutral-500">
             <Utensils size={48} className="mb-4 opacity-20" />
             <p>Select a menu item to edit details.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- 6. MODULE: CAMPAIGNS ---
+
+function CampaignsModule({ campaigns, onUpdateCampaigns, onSave }: {
+  campaigns: Campaign[],
+  onUpdateCampaigns: (c: Campaign[]) => void,
+  onSave: (c: Campaign) => Promise<void>
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = campaigns.find(c => c.id === selectedId);
+
+  const handleAdd = () => {
+    const newCamp: Campaign = {
+      id: generateId(),
+      name: 'New Campaign',
+      offerCode: 'SUMMER20',
+      status: 'Scheduled',
+      radiusMiles: 3.0,
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 86400000 * 7).toISOString()
+    };
+    onSave(newCamp); // Optimistic handled by parent? No, parent expects onSave to trigger update
+    setSelectedId(newCamp.id);
+  };
+
+  const handleChange = (changes: Partial<Campaign>) => {
+    if (!selected) return;
+    const updated = { ...selected, ...changes };
+    onSave(updated); // In real app, might debounce this
+  };
+
+  return (
+    <div className="flex h-full bg-neutral-950">
+      <div className="w-80 border-r border-neutral-800 p-4 overflow-y-auto">
+        <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Megaphone className="text-purple-500" /> Campaigns</h2>
+        <div className="space-y-2">
+          {campaigns.map(c => (
+            <div 
+              key={c.id} 
+              onClick={() => setSelectedId(c.id)}
+              className={`p-3 rounded cursor-pointer border ${selectedId === c.id ? 'bg-neutral-800 border-purple-500/50' : 'border-neutral-800 hover:bg-neutral-900'} transition-all`}
+            >
+              <div className="flex justify-between items-start mb-1">
+                <span className="font-bold text-sm text-white">{c.name}</span>
+                <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                  c.status === 'Active' ? 'bg-green-900 text-green-400' :
+                  c.status === 'Ended' ? 'bg-red-900 text-red-400' : 'bg-neutral-700 text-neutral-400'
+                }`}>{c.status}</span>
+              </div>
+              <div className="text-xs text-neutral-500 font-mono">{c.offerCode}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={handleAdd} className="mt-6 w-full py-2 border border-dashed border-neutral-700 rounded text-neutral-500 text-sm hover:border-purple-500 hover:text-purple-500">
+           + New Campaign
+        </button>
+      </div>
+      
+      <div className="flex-1 p-8 bg-neutral-900/50">
+        {selected ? (
+           <div className="max-w-2xl mx-auto bg-neutral-900 border border-neutral-800 rounded-xl p-6 shadow-xl">
+              <h3 className="text-xl font-bold mb-6 pb-4 border-b border-neutral-800 flex items-center gap-2">
+                 <Edit3 size={20} className="text-purple-500" /> Edit Campaign
+              </h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2">
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">Campaign Name</label>
+                  <input type="text" value={selected.name} onChange={(e) => handleChange({ name: e.target.value })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:border-purple-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">Offer Code</label>
+                  <input type="text" value={selected.offerCode} onChange={(e) => handleChange({ offerCode: e.target.value })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:border-purple-500 outline-none font-mono" />
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">Status</label>
+                  <select value={selected.status} onChange={(e) => handleChange({ status: e.target.value as any })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:border-purple-500 outline-none">
+                     <option value="Scheduled">Scheduled</option>
+                     <option value="Active">Active</option>
+                     <option value="Ended">Ended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">Start Date</label>
+                  <input type="date" value={selected.startDate?.split('T')[0]} onChange={(e) => handleChange({ startDate: new Date(e.target.value).toISOString() })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:border-purple-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">End Date</label>
+                  <input type="date" value={selected.endDate?.split('T')[0]} onChange={(e) => handleChange({ endDate: new Date(e.target.value).toISOString() })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-3 text-white focus:border-purple-500 outline-none" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs uppercase text-neutral-500 font-bold block mb-1">Geo-Fence Radius (Miles)</label>
+                  <input type="range" min="0.5" max="50" step="0.5" value={selected.radiusMiles} onChange={(e) => handleChange({ radiusMiles: parseFloat(e.target.value) })} className="w-full accent-purple-500 mb-2" />
+                  <div className="flex justify-between text-xs text-neutral-500">
+                    <span>0.5 mi</span>
+                    <span className="text-white font-bold">{selected.radiusMiles} miles</span>
+                    <span>50 mi</span>
+                  </div>
+                </div>
+              </div>
+           </div>
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-neutral-500">
+             <Megaphone size={48} className="mb-4 opacity-20" />
+             <p>Select a campaign to manage.</p>
           </div>
         )}
       </div>
@@ -820,8 +939,8 @@ function Dashboard({ location, slides, onEditSlide, onCreateSlide, onUpdateLocat
                <p className="text-sm text-neutral-400 mb-4">This screen is live at the following unique URL:</p>
                
                <div className="p-3 bg-neutral-950 border border-neutral-800 rounded flex items-center justify-between gap-2 mb-4">
-                  <code className="text-xs text-green-500 font-mono truncate">https://display.accel.com/s/{deployingScreen.id}</code>
-                  <button className="text-neutral-500 hover:text-white" onClick={() => navigator.clipboard.writeText(`https://display.accel.com/s/${deployingScreen.id}`)} title="Copy URL"><Copy size={14}/></button>
+                  <code className="text-xs text-green-500 font-mono truncate">{window.location.origin}{window.location.pathname}#/s/{deployingScreen.id}</code>
+                  <button className="text-neutral-500 hover:text-white" onClick={() => navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/s/${deployingScreen.id}`)} title="Copy URL"><Copy size={14}/></button>
                </div>
                
                <div className="flex justify-end">
@@ -843,9 +962,9 @@ function Dashboard({ location, slides, onEditSlide, onCreateSlide, onUpdateLocat
   );
 }
 
-function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menuItems, renderContext }: { 
+function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menuItems, campaigns, renderContext }: { 
   slide: Slide, onUpdate: (s: Slide) => void, onClose: () => void, templates: TileTemplate[], 
-  onSaveTemplate: (t: TileTemplate) => void, menuItems: MenuItem[], renderContext: RenderContext 
+  onSaveTemplate: (t: TileTemplate) => void, menuItems: MenuItem[], campaigns: Campaign[], renderContext: RenderContext 
 }) {
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<{ isDragging: boolean, elId: string | null, startX: number, startY: number, initialEl: TileInstance | null, mode: 'move' | 'resize' }>({ isDragging: false, elId: null, startX: 0, startY: 0, initialEl: null, mode: 'move' });
@@ -899,7 +1018,7 @@ function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menu
 
   return (
     <div className="flex h-full bg-neutral-950" onMouseMove={handleMouseMove} onMouseUp={() => setDragState({ ...dragState, isDragging: false })}>
-      <div className="w-72 bg-neutral-900 border-r border-neutral-800 flex flex-col">
+      <div className="w-72 shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col">
         <div className="flex items-center gap-2 p-2 border-b border-neutral-800">
            <button onClick={onClose} className="p-2 hover:bg-neutral-800 rounded text-neutral-400"><ChevronLeft size={16} /></button>
            <span className="font-semibold text-sm">Editor</span>
@@ -914,7 +1033,7 @@ function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menu
                 {['Core', 'Design', 'Data', 'Feeds', 'Restaurant', 'Embed'].map(cat => (
                   <div key={cat}>
                     <h4 className="text-[10px] font-bold uppercase text-orange-500 mb-2">{cat}</h4>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                        {Object.entries(TILE_REGISTRY).filter(([_, def]) => def.category === cat).map(([key, def]) => (
                          <button key={key} onClick={() => handleAddTile(key as TileTypeKey)} className="flex flex-col items-center justify-center p-2 rounded bg-neutral-800 border border-neutral-700 hover:border-orange-500 transition-all group">
                             <def.icon size={20} className="text-neutral-400 group-hover:text-white mb-1" />
@@ -938,99 +1057,308 @@ function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menu
         </div>
       </div>
 
-      <div className="flex-1 relative bg-neutral-950 flex flex-col">
+      <div className="flex-1 min-w-0 relative bg-neutral-950 flex flex-col">
         <div className="h-10 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-900">
-          <input type="text" value={slide.name} onChange={(e) => onUpdate({...slide, name: e.target.value})} className="bg-transparent text-sm font-medium outline-none text-white focus:text-orange-400" />
+          <input type="text" value={slide.name} onChange={(e) => onUpdate({ ...slide, name: e.target.value })} className="bg-transparent text-sm font-medium outline-none text-white focus:text-orange-400" />
           <div className="flex items-center gap-2 text-xs text-neutral-500">
-             <span className="uppercase font-bold text-[9px]">Size:</span>
-             <input type="number" value={slide.width || 800} onChange={(e) => onUpdate({...slide, width: Number(e.target.value)})} className="bg-neutral-800 border border-neutral-700 rounded w-12 text-center text-white" />
-             <span>x</span>
-             <input type="number" value={slide.height || 450} onChange={(e) => onUpdate({...slide, height: Number(e.target.value)})} className="bg-neutral-800 border border-neutral-700 rounded w-12 text-center text-white" />
-             <span className="ml-1">px</span>
+            <span className="uppercase font-bold text-[9px]">Size:</span>
+            <input type="number" value={slide.width || 800} onChange={(e) => onUpdate({ ...slide, width: Number(e.target.value) })} className="bg-neutral-800 border border-neutral-700 rounded w-12 text-center text-white" />
+            <span>x</span>
+            <input type="number" value={slide.height || 450} onChange={(e) => onUpdate({ ...slide, height: Number(e.target.value) })} className="bg-neutral-800 border border-neutral-700 rounded w-12 text-center text-white" />
+            <span className="ml-1">px</span>
           </div>
         </div>
         <div className="flex-1 overflow-hidden relative flex items-center justify-center" onClick={() => setSelectedElId(null)}>
-          <div ref={canvasRef} className="relative shadow-2xl bg-neutral-900 overflow-hidden" style={{ width: `${slide.width || 800}px`, height: `${slide.height || 450}px`, backgroundColor: slide.background, backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-             {slide.elements.sort((a,b) => a.zIndex - b.zIndex).map(el => (
-               <div key={el.id} onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', left: el.x, top: el.y, width: el.width, height: el.height, zIndex: el.zIndex, opacity: el.opacity, border: selectedElId === el.id ? '1px solid #fbbf24' : '1px solid transparent' }} onMouseDown={(e) => handleMouseDown(e, el.id, 'move')} className="group">
-                 <TileRenderer type={el.type} props={el.props} dimensions={{w: el.width, h: el.height}} binding={el.binding} context={renderContext} />
-                 {selectedElId === el.id && (
-                   <>
-                     <div className="absolute -top-3 -left-1 bg-orange-500 text-black text-[9px] font-bold">{TILE_REGISTRY[el.type].label}</div>
-                     <div className="absolute bottom-0 right-0 w-4 h-4 bg-orange-500 cursor-nwse-resize flex items-center justify-center" onMouseDown={(e) => handleMouseDown(e, el.id, 'resize')}><Move size={10} className="text-black" /></div>
-                   </>
-                 )}
-               </div>
-             ))}
+          <div
+            ref={canvasRef}
+            className="relative shadow-2xl bg-neutral-900 overflow-hidden"
+            style={{
+              width: `${slide.width || 800}px`,
+              height: `${slide.height || 450}px`,
+              backgroundColor: slide.background,
+              backgroundImage: 'radial-gradient(#333 1px, transparent 1px)',
+              backgroundSize: '20px 20px',
+            }}
+          >
+            {slide.elements
+              .sort((a, b) => a.zIndex - b.zIndex)
+              .map((el) => (
+                <div
+                  key={el.id}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    left: el.x,
+                    top: el.y,
+                    width: el.width,
+                    height: el.height,
+                    zIndex: el.zIndex,
+                    opacity: el.opacity,
+                    border:
+                      selectedElId === el.id ? '1px solid #fbbf24' : '1px solid transparent',
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, el.id, 'move')}
+                  className="group"
+                >
+                  <TileRenderer
+                    type={el.type}
+                    props={el.props}
+                    dimensions={{ w: el.width, h: el.height }}
+                    binding={el.binding}
+                    context={renderContext}
+                  />
+                  {selectedElId === el.id && (
+                    <>
+                      <div className="absolute -top-3 -left-1 bg-orange-500 text-black text-[9px] font-bold">
+                        {TILE_REGISTRY[el.type].label}
+                      </div>
+                      <div
+                        className="absolute bottom-0 right-0 w-4 h-4 bg-orange-500 cursor-nwse-resize flex items-center justify-center"
+                        onMouseDown={(e) => handleMouseDown(e, el.id, 'resize')}
+                      >
+                        <Move size={10} className="text-black" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
       </div>
 
-      <div className="w-80 bg-neutral-900 border-l border-neutral-800 flex flex-col">
-        <div className="p-4 border-b border-neutral-800"><h3 className="font-semibold text-sm">Properties</h3></div>
+      <div className="w-80 shrink-0 bg-neutral-900 border-l border-neutral-800 flex flex-col">
+        <div className="p-4 border-b border-neutral-800">
+          <h3 className="font-semibold text-sm">Properties</h3>
+        </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {selectedEl ? (
             <>
-              {/* Data Binding Section - NEW in Part 2 */}
+              {/* Data Binding Section */}
               <div className="bg-neutral-800/50 p-3 rounded border border-neutral-800">
-                 <h4 className="text-[10px] font-bold text-orange-500 uppercase mb-2 flex items-center gap-1"><LinkIcon size={10} /> Connect Data</h4>
-                 <div className="space-y-2">
-                    <div className="flex gap-2 text-xs mb-2">
-                       <button onClick={() => updateElement(selectedEl.id, { binding: { source: 'none' } })} className={`flex-1 py-1 rounded border ${selectedEl.binding?.source === 'none' ? 'bg-neutral-700 border-white text-white' : 'border-neutral-700 text-neutral-500'}`}>Static</button>
-                       <button onClick={() => updateElement(selectedEl.id, { binding: { source: 'menu' } })} className={`flex-1 py-1 rounded border ${selectedEl.binding?.source === 'menu' ? 'bg-orange-900/30 border-orange-500 text-orange-400' : 'border-neutral-700 text-neutral-500'}`}>Menu Item</button>
-                    </div>
-                    {selectedEl.binding?.source === 'menu' && (
-                      <>
-                        <select value={selectedEl.binding.itemId || ''} onChange={(e) => updateElement(selectedEl.id, { binding: { source: 'menu', field: selectedEl.binding?.field, itemId: e.target.value } })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs mb-2">
-                           <option value="">Select Item...</option>
-                           {menuItems.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                        </select>
-                        <select value={selectedEl.binding.field || ''} onChange={(e) => updateElement(selectedEl.id, { binding: { source: 'menu', itemId: selectedEl.binding?.itemId, field: e.target.value } })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs">
-                           <option value="">Select Field...</option>
-                           <option value="name">Name</option>
-                           <option value="price">Price</option>
-                           <option value="description">Description</option>
-                           <option value="calories">Calories</option>
-                           <option value="imageUrl">Image URL</option>
-                        </select>
-                        <div className="text-[10px] text-green-500 mt-1 flex items-center gap-1"><ArrowUpRight size={10} /> Live Bound</div>
-                      </>
-                    )}
-                 </div>
+                <h4 className="text-[10px] font-bold text-orange-500 uppercase mb-2 flex items-center gap-1">
+                  <LinkIcon size={10} /> Connect Data
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex gap-2 text-xs mb-2">
+                    <button
+                      onClick={() => updateElement(selectedEl.id, { binding: { source: 'none' } })}
+                      className={`flex-1 py-1 rounded border ${
+                        selectedEl.binding?.source === 'none'
+                          ? 'bg-neutral-700 border-white text-white'
+                          : 'border-neutral-700 text-neutral-500'
+                      }`}
+                    >
+                      Static
+                    </button>
+                    <button
+                      onClick={() => updateElement(selectedEl.id, { binding: { source: 'menu' } })}
+                      className={`flex-1 py-1 rounded border ${
+                        selectedEl.binding?.source === 'menu'
+                          ? 'bg-orange-900/30 border-orange-500 text-orange-400'
+                          : 'border-neutral-700 text-neutral-500'
+                      }`}
+                    >
+                      Menu Item
+                    </button>
+                    <button
+                      onClick={() => updateElement(selectedEl.id, { binding: { source: 'campaign' } })}
+                      className={`flex-1 py-1 rounded border ${
+                        selectedEl.binding?.source === 'campaign'
+                          ? 'bg-purple-900/30 border-purple-500 text-purple-400'
+                          : 'border-neutral-700 text-neutral-500'
+                      }`}
+                    >
+                      Campaign
+                    </button>
+                  </div>
+                  {selectedEl.binding?.source === 'menu' && (
+                    <>
+                      <select
+                        value={selectedEl.binding.itemId || ''}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            binding: {
+                              source: 'menu',
+                              field: selectedEl.binding?.field,
+                              itemId: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs mb-2"
+                      >
+                        <option value="">Select Item...</option>
+                        {menuItems.map((i) => (
+                          <option key={i.id} value={i.id}>
+                            {i.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedEl.binding.field || ''}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            binding: {
+                              source: 'menu',
+                              itemId: selectedEl.binding?.itemId,
+                              field: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs"
+                      >
+                        <option value="">Select Field...</option>
+                        <option value="name">Name</option>
+                        <option value="price">Price</option>
+                        <option value="description">Description</option>
+                        <option value="calories">Calories</option>
+                        <option value="imageUrl">Image URL</option>
+                      </select>
+                      <div className="text-[10px] text-green-500 mt-1 flex items-center gap-1">
+                        <ArrowUpRight size={10} /> Live Bound
+                      </div>
+                    </>
+                  )}
+                  {selectedEl.binding?.source === 'campaign' && (
+                    <>
+                      <select
+                        value={selectedEl.binding.itemId || ''}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            binding: {
+                              source: 'campaign',
+                              field: selectedEl.binding?.field,
+                              itemId: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs mb-2"
+                      >
+                        <option value="">Select Campaign...</option>
+                        {campaigns.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedEl.binding.field || ''}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            binding: {
+                              source: 'campaign',
+                              itemId: selectedEl.binding?.itemId,
+                              field: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs"
+                      >
+                        <option value="">Select Field...</option>
+                        <option value="name">Name</option>
+                        <option value="offerCode">Offer Code</option>
+                        <option value="status">Status</option>
+                        <option value="startDate">Start Date</option>
+                        <option value="endDate">End Date</option>
+                      </select>
+                      <div className="text-[10px] text-green-500 mt-1 flex items-center gap-1">
+                        <ArrowUpRight size={10} /> Live Bound
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Standard Props */}
               <div className="space-y-3">
-                 <h4 className="text-[10px] font-bold text-neutral-500 uppercase">Style & Layout</h4>
-                 <div className="grid grid-cols-2 gap-2">
-                    {['x', 'y', 'width', 'height', 'opacity', 'zIndex'].map(prop => (
-                      <div key={prop}>
-                        <label className="text-[9px] text-neutral-500 uppercase block mb-1">{prop}</label>
-                        <input type="number" value={Math.round((selectedEl as any)[prop])} onChange={(e) => updateElement(selectedEl.id, { [prop]: Number(e.target.value) })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs" />
-                      </div>
-                    ))}
-                 </div>
-                 {Object.entries(selectedEl.props).map(([key, val]) => (
-                    <div key={key}>
-                      <label className="text-[9px] text-neutral-500 uppercase block mb-1">{key}</label>
-                      {key.includes('color') || key === 'bg' ? (
-                         <div className="flex gap-2">
-                           <input type="color" value={val} onChange={(e) => updateElement(selectedEl.id, { props: { ...selectedEl.props, [key]: e.target.value } })} className="h-8 w-8 bg-transparent cursor-pointer" />
-                           <input type="text" value={val} onChange={(e) => updateElement(selectedEl.id, { props: { ...selectedEl.props, [key]: e.target.value } })} className="flex-1 bg-neutral-950 border border-neutral-700 rounded p-1 text-xs" />
-                         </div>
-                      ) : (
-                         <input type={typeof val === 'number' ? 'number' : 'text'} value={val} onChange={(e) => updateElement(selectedEl.id, { props: { ...selectedEl.props, [key]: e.target.type === 'number' ? Number(e.target.value) : e.target.value } })} className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs" />
-                      )}
+                <h4 className="text-[10px] font-bold text-neutral-500 uppercase">Style & Layout</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {['x', 'y', 'width', 'height', 'opacity', 'zIndex'].map((prop) => (
+                    <div key={prop}>
+                      <label className="text-[9px] text-neutral-500 uppercase block mb-1">{prop}</label>
+                      <input
+                        type="number"
+                        value={Math.round((selectedEl as any)[prop])}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            [prop]: Number(e.target.value),
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs"
+                      />
                     </div>
-                 ))}
+                  ))}
+                </div>
+                {Object.entries(selectedEl.props).map(([key, val]) => (
+                  <div key={key}>
+                    <label className="text-[9px] text-neutral-500 uppercase block mb-1">{key}</label>
+                    {key.includes('color') || key === 'bg' ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={val as string}
+                          onChange={(e) =>
+                            updateElement(selectedEl.id, {
+                              props: { ...selectedEl.props, [key]: e.target.value },
+                            })
+                          }
+                          className="h-8 w-8 bg-transparent cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={val as string}
+                          onChange={(e) =>
+                            updateElement(selectedEl.id, {
+                              props: { ...selectedEl.props, [key]: e.target.value },
+                            })
+                          }
+                          className="flex-1 bg-neutral-950 border border-neutral-700 rounded p-1 text-xs"
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type={typeof val === 'number' ? 'number' : 'text'}
+                        value={val as any}
+                        onChange={(e) =>
+                          updateElement(selectedEl.id, {
+                            props: {
+                              ...selectedEl.props,
+                              [key]:
+                                e.target.type === 'number'
+                                  ? Number(e.target.value)
+                                  : e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded p-1 text-xs"
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
               <div className="mt-6 pt-4 border-t border-neutral-800 flex flex-col gap-2">
-                 <button onClick={handleCreateTemplate} className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 rounded text-xs font-medium flex items-center justify-center gap-2"><Save size={14} /> Save as Template</button>
-                 <button onClick={() => onUpdate({...slide, elements: slide.elements.filter(e => e.id !== selectedEl.id)})} className="w-full py-2 bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded text-xs font-medium flex items-center justify-center gap-2"><Trash2 size={14} /> Delete Tile</button>
+                <button
+                  onClick={handleCreateTemplate}
+                  className="w-full py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 rounded text-xs font-medium flex items-center justify-center gap-2"
+                >
+                  <Save size={14} /> Save as Template
+                </button>
+                <button
+                  onClick={() =>
+                    onUpdate({
+                      ...slide,
+                      elements: slide.elements.filter((e) => e.id !== selectedEl.id),
+                    })
+                  }
+                  className="w-full py-2 bg-red-900/20 hover:bg-red-900/40 text-red-500 rounded text-xs font-medium flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={14} /> Delete Tile
+                </button>
               </div>
             </>
           ) : (
-            <div className="text-center text-neutral-500 text-sm mt-10">Select an element to edit properties.</div>
+            <div className="text-center text-neutral-500 text-sm mt-10">
+              Select an element to edit properties.
+            </div>
           )}
         </div>
       </div>
@@ -1038,21 +1366,168 @@ function SlideEditor({ slide, onUpdate, onClose, templates, onSaveTemplate, menu
   );
 }
 
-// --- 9. TILE RENDERER (Updated with Binding Logic) ---
+async function fetchSheetCellValue(url: string, cell: string): Promise<string | null> {
+  try {
+    if (!url) return null;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const rows = text
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => line.split(','));
+    const { row, col } = parseCellRef(cell || 'A1');
+    const value = rows[row]?.[col] ?? null;
+    return value;
+  } catch (err) {
+    console.error('Failed to fetch sheet cell', err);
+    return null;
+  }
+}
 
-function TileRenderer({ type, props, dimensions, binding, context }: { 
-  type: TileTypeKey, 
-  props: Record<string, any>, 
-  dimensions: { w: number, h: number }, 
-  binding?: DataBinding, 
-  context?: RenderContext 
+function parseCellRef(cell: string): { row: number; col: number } {
+  const match = cell.match(/([A-Za-z]+)(\d+)/);
+  if (!match) return { row: 0, col: 0 };
+  const [, colLetters, rowStr] = match;
+  let col = 0;
+  for (let i = 0; i < colLetters.length; i++) {
+    col *= 26;
+    col += colLetters.charCodeAt(i) - 64; // A -> 1
+  }
+  return { row: parseInt(rowStr, 10) - 1, col: col - 1 };
+}
+
+function SheetCellTile({ url, cell }: { url: string; cell: string }) {
+  const [value, setValue] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState<boolean>(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchSheetCellValue(url, cell)
+      .then((val) => {
+        if (cancelled) return;
+        setValue(val);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(String(e));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url, cell]);
+
+  if (!url) {
+    return <div className="text-xs text-neutral-400">Configure Google Sheet URL</div>;
+  }
+
+  if (loading) {
+    return <div className="text-xs text-neutral-400">Loading cell {cell || 'A1'}...</div>;
+  }
+
+  if (error) {
+    return <div className="text-xs text-red-400">Error loading cell</div>;
+  }
+
+  return <div className="text-sm font-semibold">{value ?? '(empty)'}</div>;
+}
+
+// --- 10. TILE RENDERER (Updated with Binding Logic) ---
+
+function ClockTile({ props, style, type }: { props: any; style: React.CSSProperties; type: TileTypeKey }) {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (type === 'countdown') {
+    const target = new Date(props.target || new Date().getFullYear() + 1 + '-01-01');
+    const diff = target.getTime() - time.getTime();
+
+    if (diff <= 0) {
+      return (
+        <div style={style}>
+          <div className="text-2xl font-bold">00:00:00</div>
+          <div className="text-xs uppercase">{props.label || 'Expired'}</div>
+        </div>
+      );
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return (
+      <div style={style}>
+        <div className="flex gap-4 text-center">
+          {days > 0 && (
+            <div>
+              <div className="text-2xl font-bold">{days}</div>
+              <div className="text-[9px] uppercase opacity-50">Days</div>
+            </div>
+          )}
+          <div>
+            <div className="text-2xl font-bold">{String(hours).padStart(2, '0')}</div>
+            <div className="text-[9px] uppercase opacity-50">Hrs</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{String(minutes).padStart(2, '0')}</div>
+            <div className="text-[9px] uppercase opacity-50">Min</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{String(seconds).padStart(2, '0')}</div>
+            <div className="text-[9px] uppercase opacity-50">Sec</div>
+          </div>
+        </div>
+        {props.label && (
+          <div className="mt-2 text-xs font-bold uppercase tracking-widest text-orange-500">{props.label}</div>
+        )}
+      </div>
+    );
+  }
+
+  const timeStr = time.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: props.showSeconds ? '2-digit' : undefined,
+    hour12: props.format === '12h',
+  });
+
+  return (
+    <div style={style}>
+      <div className="font-mono font-bold" style={{ fontSize: '1.5em' }}>
+        {timeStr}
+      </div>
+      {(type === 'date' || props.showDate) && (
+        <div className="text-xs mt-1">{time.toLocaleDateString()}</div>
+      )}
+    </div>
+  );
+}
+
+function TileRenderer({ type, props, dimensions, binding, context }: {
+  type: TileTypeKey;
+  props: Record<string, any>;
+  dimensions: { w: number; h: number };
+  binding?: DataBinding;
+  context?: RenderContext;
 }) {
   // BINDING RESOLUTION LOGIC
   let finalProps = { ...props };
   console.log(`Debug: Rendering tile of type ${type} with final props:`, JSON.stringify(finalProps));
-  
+
   if (binding && binding.source === 'menu' && binding.itemId && binding.field && context?.menuItems) {
-    const item = context.menuItems.find(i => i.id === binding.itemId);
+    const item = context.menuItems.find((i) => i.id === binding.itemId);
     if (item) {
       const fieldKey = binding.field as keyof MenuItem;
       const val = item[fieldKey];
@@ -1061,78 +1536,778 @@ function TileRenderer({ type, props, dimensions, binding, context }: {
     }
   }
 
+  if (binding && binding.source === 'campaign' && binding.itemId && binding.field && context?.campaigns) {
+    const campaign = context.campaigns.find((c) => c.id === binding.itemId);
+    if (campaign) {
+      const fieldKey = binding.field as keyof Campaign;
+      const val = campaign[fieldKey];
+      if (type === 'text') finalProps.content = String(val);
+    }
+  }
+
   // Common Styles
   const containerStyle: React.CSSProperties = {
-    width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    color: finalProps.color || '#fff', fontSize: finalProps.fontSize ? `${finalProps.fontSize}px` : '16px', textAlign: finalProps.textAlign as any, 
-    fontFamily: finalProps.fontFamily || 'Inter', fontWeight: finalProps.fontWeight || 'normal', backgroundColor: finalProps.bg || 'transparent', borderRadius: finalProps.radius ? `${finalProps.radius}px` : 0
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: finalProps.color || '#fff',
+    fontSize: finalProps.fontSize ? `${finalProps.fontSize}px` : '16px',
+    textAlign: finalProps.textAlign as any,
+    fontFamily: finalProps.fontFamily || 'Inter',
+    fontWeight: finalProps.fontWeight || 'normal',
+    backgroundColor: finalProps.bg || 'transparent',
+    borderRadius: finalProps.radius ? `${finalProps.radius}px` : 0,
+  };
+
+  const parseChartData = (str: string) => {
+    if (!str) return [] as { name: string; value: number }[];
+    return str.split(',').map((v, i) => ({ name: `D${i}`, value: parseInt(v.trim(), 10) }));
   };
 
   switch (type) {
-    case 'text': return <div style={{ ...containerStyle, whiteSpace: 'pre-wrap' }} className="p-2">{finalProps.content || 'Default text'}</div>;
-    case 'image': return <img src={finalProps.url || 'https://placehold.co/400x300'} alt="Image" style={{ ...containerStyle, objectFit: finalProps.fit || 'cover' }} className="w-full h-full" />;
-    case 'video': return <video src={finalProps.url || ''} autoPlay loop muted style={{ ...containerStyle, objectFit: 'cover' }} className="w-full h-full" />;
-    case 'audio': return <audio src={finalProps.url || ''} autoPlay loop controls style={containerStyle} className="w-full h-full" />;
-    case 'gif': return <img src={finalProps.url || 'https://media.giphy.com/media/3o7aD2saalBwwftBIY/giphy.gif'} alt="GIF" style={{ ...containerStyle, objectFit: finalProps.fit || 'cover' }} className="w-full h-full" />;
-    case 'shape': return <div style={{...containerStyle, backgroundColor: finalProps.bg || 'gray', borderRadius: `${finalProps.radius || 0}px` }} className="w-full h-full" />;
-    case 'gradient': return <div style={{ background: `linear-gradient(${finalProps.direction || 'to right'}, ${finalProps.colors || '#000,#fff'})`, ...containerStyle }} className="w-full h-full" />;
-    case 'weather': return <div style={containerStyle} className="flex flex-col items-center"><Sun size={dimensions.h * 0.4} /><span className="font-bold mt-2">{finalProps.temp || '72'}°{finalProps.units || 'F'}</span><span className="text-xs mt-1">{finalProps.city || 'Default City'}</span></div>; // TODO: Implement dynamic weather API call
-    case 'menu': return <div style={{ ...containerStyle, display: 'grid', gridTemplateColumns: `repeat(${finalProps.columns || 1}, 1fr)`, gap: '8px', padding: '8px' }} className="w-full h-full">{(finalProps.items || []).map((item: any, i: number) => (<div key={i} className="flex justify-between p-2 border-b border-white/10"><span className="font-bold">{item.name}</span><span className="text-orange-400">${item.price}</span></div>))}</div>;
-    case 'qrcode': return <div style={containerStyle} className="w-full h-full flex items-center justify-center"><img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(finalProps.data || 'https://accel.com')}&size=200x200&color=${finalProps.color?.replace('#', '') || '000000'}&bgcolor=${finalProps.bg?.replace('#', '') || 'FFFFFF'}`} alt="QR Code" style={{width: '100%', height: '100%'}} /></div>;
-    case 'clock': return <div style={containerStyle} className="flex items-center justify-center">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: finalProps.showSeconds ? '2-digit' : undefined })}</div>; 
-    case 'date': return <div style={containerStyle} className="flex items-center justify-center">{new Date().toLocaleDateString(finalProps.format || 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>;
-    case 'timer': return <div style={containerStyle} className="flex items-center justify-center">Timer: {finalProps.label || 'Countdown'} {new Date().toLocaleTimeString()}</div>;
-    case 'bar': return <div style={containerStyle} className="w-full h-full flex items-center justify-center">Bar Chart placeholder (not implemented)</div>; // TODO: Implement bar chart with recharts
-    case 'pie': return (
-      <div style={containerStyle} className="w-full h-full flex items-center justify-center">
+    case 'text':
+      return (
+        <div style={{ ...containerStyle, display: 'block', whiteSpace: 'pre-wrap' }}>
+          {finalProps.content}
+        </div>
+      );
+
+    case 'image':
+    case 'gif':
+    case 'random_image':
+    case 'avatar': {
+      if (!finalProps.url) {
+        return (
+          <div
+            style={{ ...containerStyle, backgroundColor: finalProps.bg || '#262626' }}
+          >
+            <ImageIcon className="text-neutral-600" />
+          </div>
+        );
+      }
+      return (
+        <img
+          src={finalProps.url}
+          alt=""
+          style={{ ...containerStyle, objectFit: finalProps.fit || 'cover' }}
+        />
+      );
+    }
+
+    case 'video':
+      if (!finalProps.url) return null;
+      return (
+        <video
+          src={finalProps.url}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            borderRadius: containerStyle.borderRadius,
+          }}
+          loop={finalProps.loop}
+          muted={finalProps.muted}
+          autoPlay={finalProps.autoplay}
+          playsInline
+        />
+      );
+
+    case 'audio':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            backgroundColor: finalProps.bg || '#111',
+            padding: 10,
+            borderRadius: 8,
+          }}
+        >
+          <Music size={32} className="text-orange-500 mb-2 animate-bounce" />
+          <audio
+            controls
+            autoPlay={finalProps.autoplay}
+            loop={finalProps.loop}
+            style={{ width: '100%', height: 30 }}
+          >
+            {finalProps.url && <source src={finalProps.url} />}
+          </audio>
+        </div>
+      );
+
+    case 'map':
+      return (
+        <div style={{ ...containerStyle, position: 'relative' }}>
+          <iframe
+            width="100%"
+            height="100%"
+            frameBorder={0}
+            style={{ border: 0 }}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(
+              finalProps.location || 'New York',
+            )}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+            title="Google Map"
+          />
+        </div>
+      );
+
+    case 'youtube':
+      return (
+        <iframe
+          width="100%"
+          height="100%"
+          src={`https://www.youtube.com/embed/${finalProps.videoId}?autoplay=$
+            {finalProps.autoplay ? 1 : 0
+          }&mute=1&controls=0&loop=1&playlist=${finalProps.videoId}`}
+          title="YouTube video player"
+          frameBorder={0}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          style={{ borderRadius: containerStyle.borderRadius as any, pointerEvents: 'none' }}
+        />
+      );
+
+    case 'vimeo':
+      if (!finalProps.videoId) return null;
+      return (
+        <iframe
+          src={`https://player.vimeo.com/video/${finalProps.videoId}?autoplay=1&loop=1&background=1`}
+          width="100%"
+          height="100%"
+          frameBorder={0}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title="Vimeo video player"
+          style={{ borderRadius: containerStyle.borderRadius as any, pointerEvents: 'none' }}
+        />
+      );
+
+    case 'shape':
+      return <div style={containerStyle} />;
+
+    case 'gradient':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            background: `linear-gradient(${finalProps.direction || 'to right'}, ${
+              finalProps.colors
+            })`,
+          }}
+        />
+      );
+
+    case 'icon':
+      return (
+        <div style={containerStyle}>
+          <Star size={finalProps.size || 64} color={finalProps.color} />
+        </div>
+      );
+
+    case 'clock':
+    case 'date':
+    case 'timer':
+    case 'countdown':
+      return <ClockTile props={finalProps} style={containerStyle} type={type} />;
+
+    case 'rss':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            justifyContent: 'flex-start',
+            padding: 10,
+          }}
+        >
+          <div className="text-xs font-bold text-orange-500 mb-1 flex items-center gap-1">
+            <Activity size={12} /> RSS Feed
+          </div>
+          <div className="text-sm">
+            {finalProps.url ? 'Latest news from feed...' : 'Configure RSS URL'}
+          </div>
+        </div>
+      );
+
+    case 'quote':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            padding: 20,
+            fontStyle: 'italic',
+            textAlign: 'center',
+          }}
+        >
+          <MessageSquare size={24} className="text-neutral-600 mb-2 mx-auto" />
+          {""}
+          {finalProps.topic === 'food'
+            ? 'People who love to eat are always the best people.'
+            : 'The only way to do great work is to love what you do.'}
+        </div>
+      );
+
+    case 'stock':
+    case 'crypto': {
+      const isCrypto = type === 'crypto';
+      const isUp = true; // Keep deterministic in preview to satisfy React purity
+      return (
+        <div style={containerStyle}>
+          <div className="text-xs font-bold text-neutral-500 mb-1 uppercase tracking-widest">
+            {finalProps.symbol}
+          </div>
+          <div
+            className={`text-2xl font-bold ${
+              isUp ? 'text-green-500' : 'text-red-500'
+            } flex items-center gap-2`}
+          >
+            {isCrypto ? '$42,150.00' : '185.92'}
+            <TrendingUp size={20} className={isUp ? '' : 'rotate-180'} />
+          </div>
+          <div className="text-[10px] text-neutral-600 mt-1">+1.2% Today</div>
+        </div>
+      );
+    }
+
+    case 'list': {
+      const listItems = (finalProps.items || '').split(',');
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            alignItems: 'flex-start',
+            padding: 10,
+            overflow: 'auto',
+          }}
+        >
+          {listItems.map((item: string, i: number) => (
+            <div key={i} className="flex items-center gap-2 mb-1">
+              <span className="text-orange-500 font-bold">
+                {finalProps.bullet || '•'}
+              </span>
+              <span>{item.trim()}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    case 'table': {
+      const rows = (finalProps.csv || '').split('\n').map((r: string) => r.split(','));
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            overflow: 'auto',
+            justifyContent: 'flex-start',
+            alignItems: 'stretch',
+          }}
+        >
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                {rows[0]?.map((h: string, i: number) => (
+                  <th
+                    key={i}
+                    className="p-2 border-b border-white/20 text-xs uppercase"
+                    style={{ color: finalProps.headerColor }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(1).map((row: string[], i: number) => (
+                <tr key={i} className="border-b border-white/5">
+                  {row.map((c: string, j: number) => (
+                    <td key={j} className="p-2 text-sm">
+                      {c}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case 'status': {
+      const statusColor =
+        finalProps.status === 'ok'
+          ? '#22c55e'
+          : finalProps.status === 'warn'
+          ? '#f59e0b'
+          : '#ef4444';
+      return (
+        <div style={containerStyle}>
+          <div
+            style={{
+              width: dimensions.h * 0.5,
+              height: dimensions.h * 0.5,
+              borderRadius: '50%',
+              backgroundColor: statusColor,
+              boxShadow: `0 0 ${dimensions.h * 0.3}px ${statusColor}`,
+            }}
+          />
+          <div className="mt-2 font-bold uppercase tracking-widest text-xs">
+            {finalProps.status}
+          </div>
+        </div>
+      );
+    }
+
+    case 'weather':
+    case 'weather_detailed':
+    case 'weather_icon':
+    case 'emojiWeather':
+      return (
+        <div style={containerStyle} className="flex flex-col">
+          <Sun size={dimensions.h * 0.4} />
+          <span className="font-bold mt-2">
+            72°{finalProps.units || 'F'}
+          </span>
+          <span className="text-xs">{finalProps.city || 'New York'}</span>
+        </div>
+      );
+
+    case 'menu':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            display: 'grid',
+            gridTemplateColumns: `repeat(${finalProps.columns || 1}, 1fr)`,
+            gap: '8px',
+            padding: '8px',
+            alignItems: 'start',
+            justifyContent: 'start',
+            overflow: 'auto',
+          }}
+        >
+          {(finalProps.items || []).map((item: any, i: number) => (
+            <div
+              key={i}
+              className="flex justify-between border-b border-white/10 pb-1"
+            >
+              <span className="font-bold">{item.n}</span>
+              <span className="text-orange-400">${item.p}</span>
+            </div>
+          ))}
+        </div>
+      );
+
+    case 'bar':
+    case 'chart':
+      return (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={parseChartData(finalProps.data)}>
+            <Bar dataKey="value" fill={finalProps.color || '#fbbf24'} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+
+    case 'pie': {
+      const pieData = parseChartData(finalProps.data);
+      const colors = (finalProps.colors || '#fbbf24,#374151').split(',');
+      return (
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={finalProps.data.split(',').map((v: string, i: number) => ({
-                value: Number(v),
-                fill: finalProps.colors.split(',')[i],
-              }))}
+              data={pieData}
               dataKey="value"
-              nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={60}
-              outerRadius={80}
+              outerRadius={Math.min(dimensions.w, dimensions.h) / 2.5}
               fill="#8884d8"
-            />
+              stroke="none"
+            >
+              {pieData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={colors[index % colors.length] || '#ccc'}
+                />
+              ))}
+            </Pie>
           </PieChart>
         </ResponsiveContainer>
-      </div>
-    );
-    case 'carousel': return <div style={containerStyle} className="w-full h-full overflow-hidden">Carousel placeholder (not implemented)</div>; // TODO: Implement carousel logic
-    case 'rss': return <div style={containerStyle} className="overflow-hidden">RSS Feed placeholder (not implemented)</div>; // TODO: Implement RSS feed logic
-    case 'map': return <div style={containerStyle} className="w-full h-full">Map placeholder (not implemented)</div>; // TODO: Implement map logic with API
-    case 'status': return <div style={{ ...containerStyle, backgroundColor: finalProps.status === 'ok' ? 'green' : finalProps.status === 'warn' ? 'yellow' : 'red' }} className="w-full h-full flex items-center justify-center">Status: {finalProps.status || 'ok'}</div>;
-    case 'icon': return <div style={containerStyle} className="flex items-center justify-center"><Star size={finalProps.size || 64} color={finalProps.color || 'white'} /> <span>{finalProps.icon || 'icon'}</span></div>; // Using Star as default, TODO: dynamic icon based on string prop
-    case 'html': return <div style={containerStyle} dangerouslySetInnerHTML={{ __html: finalProps.code || '' }} className="w-full h-full" />;
-    case 'progress': return <div style={{ ...containerStyle, background: `linear-gradient(to right, ${finalProps.color || 'green'} 0%, ${finalProps.color || 'green'} ${finalProps.value || 50}%, gray 50%, gray 100%)`, borderRadius: '4px' }} className="w-full h-4" />; // TODO: Implement progress bar logic
-    case 'table': return <div style={containerStyle} className="w-full h-full overflow-auto"><table style={{width: '100%', borderCollapse: 'collapse'}}><thead><tr style={{background: 'gray', color: 'white'}}><th>Header1</th><th>Header2</th></tr></thead><tbody>{(finalProps.data || []).map((row: string[], i: number) => (<tr key={i} style={{borderBottom: '1px solid white'}}><td style={{padding: '4px'}}>{row[0]}</td><td style={{padding: '4px'}}>{row[1]}</td></tr>))}</tbody></table></div>; 
-    case 'countdown': return <div style={containerStyle} className="flex items-center justify-center">Countdown placeholder (not implemented)</div>; // TODO: Implement countdown logic with target date
-    case 'emojiWeather': return <div style={containerStyle} className="flex items-center justify-center">Weather Emoji placeholder (not implemented)</div>; // TODO: Implement weather emoji logic
-    case 'crypto': return <div style={containerStyle} className="flex items-center justify-center">Crypto: {finalProps.symbol || 'BTC'} - $50,000</div>; // TODO: Implement real-time crypto price API call
-    case 'stock': return <div style={containerStyle} className="flex items-center justify-center">Stock: {finalProps.symbol || 'AAPL'} - $150.00</div>; // TODO: Implement real-time stock price API call
-    case 'news': return <div style={containerStyle} className="w-full h-full overflow-auto">News Feed placeholder (not implemented)</div>; // TODO: Implement news feed with API
-    case 'social': return <div style={containerStyle} className="w-full h-full flex items-center justify-center">Social Feed placeholder (not implemented)</div>; // TODO: Implement social media feed
-    case 'button': return <button style={{ ...containerStyle, backgroundColor: finalProps.bg || 'blue', color: 'white' }} className="p-2 rounded cursor-pointer" onClick={finalProps.onClick || (() => {})}>{finalProps.label || 'Click me'}</button>; // Explicitly using native button element
-    case 'chart': return <div style={containerStyle} className="w-full h-full flex items-center justify-center">Chart placeholder (not implemented)</div>; 
-    case 'calendar': return <div style={containerStyle} className="w-full h-full flex items-center justify-center">Calendar: {new Date().toLocaleDateString()}</div>;
-    case 'alert': return <div style={{ ...containerStyle, backgroundColor: 'red', color: 'white' }} className="p-4 rounded">{finalProps.message || 'Alert message'}</div>;
-    case 'custom': return <div style={containerStyle} className="w-full h-full flex items-center justify-center">Custom tile rendered: {JSON.stringify(finalProps)}</div>;
-    case 'link': return <a href={finalProps.url || '#'} style={{ ...containerStyle, color: 'blue', textDecoration: 'underline' }} className="flex items-center justify-center">{finalProps.text || 'Link'}</a>; // TODO: Add target and rel attributes for security
-    case 'gallery': return <div style={containerStyle} className="w-full h-full grid grid-cols-2 gap-2 p-2 overflow-auto">{[1,2,3,4].map((_, i) => (<div key={i} className="w-full h-32 bg-gray-500 flex items-center justify-center">Image {i+1}</div>))}</div>; // TODO: Implement dynamic image gallery from URLs
-    default:
-      const def = TILE_REGISTRY[type];
+      );
+    }
+
+    case 'progress':
       return (
-        <div style={{...containerStyle, border: '1px dashed #555'}} className="relative group">
-           <def.icon size={24} className="opacity-50 mb-2" />
-           <span className="text-[10px] uppercase font-bold tracking-wider opacity-70">{def.label}</span>
-           <span className="text-[9px] opacity-40 mt-1 max-w-[90%] truncate text-center">{JSON.stringify(finalProps).slice(0, 30)}...</span>
+        <div style={{ ...containerStyle, padding: 20 }}>
+          <div className="w-full h-4 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              style={{
+                width: `${(finalProps.value / finalProps.max) * 100}%`,
+                height: '100%',
+                backgroundColor: finalProps.color || '#10b981',
+              }}
+            />
+          </div>
+          <div className="mt-2 font-bold">{finalProps.value}%</div>
         </div>
       );
+
+    case 'qrcode':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            backgroundColor: finalProps.bg || '#fff',
+            padding: 8,
+          }}
+        >
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+              finalProps.data || 'https://accelanalysis.com',
+            )}&color=${(finalProps.color || '#000').replace('#', '')}`}
+            alt="QR"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </div>
+      );
+
+    case 'html':
+      return (
+        <div
+          style={containerStyle}
+          className="w-full h-full"
+          dangerouslySetInnerHTML={{ __html: finalProps.code || '' }}
+        />
+      );
+
+    case 'iframe':
+      if (!finalProps.url) return <div style={containerStyle} className="bg-neutral-900" />;
+      return (
+        <iframe
+          src={finalProps.url}
+          title="Embedded Content"
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            borderRadius: containerStyle.borderRadius as any,
+          }}
+        />
+      );
+
+    case 'marquee':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            className="animate-marquee"
+            style={{
+              display: 'inline-block',
+              animation: `marquee ${200 / (finalProps.speed || 10)}s linear infinite`,
+              paddingLeft: '100%',
+            }}
+          >
+            {finalProps.text}
+          </div>
+          <style>{`
+            @keyframes marquee {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-100%); }
+            }
+          `}</style>
+        </div>
+      );
+
+    case 'carousel':
+    case 'scene':
+      return (
+        <div style={{ ...containerStyle, backgroundColor: '#000' }}>
+          <img
+            src={
+              finalProps.urls?.[0] ||
+              'https://placehold.co/800x450/111/444?text=Slideshow'
+            }
+            alt="Slideshow"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: 0.7,
+            }}
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1">
+            <div className="w-2 h-2 rounded-full bg-white" />
+            <div className="w-2 h-2 rounded-full bg-white/50" />
+            <div className="w-2 h-2 rounded-full bg-white/50" />
+          </div>
+        </div>
+      );
+
+    case 'mic':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            gap: 2,
+            padding: 20,
+          }}
+        >
+          {[0.4, 0.7, 0.3, 0.8, 0.5, 0.9, 0.6, 0.4].map((h, i) => (
+            <div
+              key={i}
+              style={{
+                width: '10%',
+                height: `${h * 100}%`,
+                backgroundColor: finalProps.color || '#fbbf24',
+                borderRadius: 2,
+              }}
+            />
+          ))}
+        </div>
+      );
+
+    case 'camera':
+      return (
+        <div style={{ ...containerStyle, backgroundColor: '#000' }}>
+          <div className="absolute top-2 left-2 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded animate-pulse">
+            LIVE
+          </div>
+          <ImageIcon className="text-neutral-700" size={48} />
+          <div className="text-neutral-600 text-xs mt-2">Camera Feed Offline</div>
+        </div>
+      );
+
+    case 'openai':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            padding: 20,
+            alignItems: 'flex-start',
+            textAlign: 'left',
+          }}
+        >
+          <div className="text-[10px] uppercase font-bold text-purple-400 mb-2 flex items-center gap-1">
+            <Box size={10} /> AI Generated
+          </div>
+          <div className="text-sm opacity-90">
+            {finalProps.prompt
+              ? `Result for "${finalProps.prompt}"...`
+              : 'Enter a prompt'}
+          </div>
+        </div>
+      );
+
+    case 'flipboard':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            backgroundColor: '#111',
+            perspective: 1000,
+          }}
+        >
+          <div className="bg-neutral-800 px-4 py-2 rounded border-b-2 border-black text-4xl font-bold font-mono tracking-widest shadow-xl">
+            {finalProps.number || '00'}
+          </div>
+        </div>
+      );
+
+    case 'sheetcell':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            border: '1px solid #10b981',
+            backgroundColor: '#064e3b',
+            color: '#fff',
+          }}
+        >
+          <div className="absolute top-0 left-0 bg-[#10b981] text-[8px] text-black px-1 font-bold">
+            {finalProps.cell || 'A1'}
+          </div>
+          <SheetCellTile url={finalProps.url || ''} cell={finalProps.cell || 'A1'} />
+        </div>
+      );
+
+    case 'lottie':
+    case 'particles':
+    case '3dmodel':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            border: '1px dashed #555',
+            background:
+              'repeating-linear-gradient(45deg, #111, #111 10px, #222 10px, #222 20px)',
+          }}
+        >
+          <Box className="text-neutral-500 animate-spin" size={32} />
+          <div className="text-[10px] text-neutral-500 mt-2 font-bold uppercase">
+            {type} Placeholder
+          </div>
+        </div>
+      );
+
+    case 'button':
+      return (
+        <button
+          style={{
+            ...containerStyle,
+            backgroundColor: finalProps.bg || 'blue',
+            color: 'white',
+          }}
+          className="px-4 py-2 rounded cursor-pointer"
+          onClick={finalProps.onClick || (() => {})}
+        >
+          {finalProps.label || 'Click me'}
+        </button>
+      );
+
+    case 'calendar':
+      return (
+        <div style={containerStyle}>
+          <div className="text-xs uppercase opacity-60 mb-1">Calendar</div>
+          <div className="text-lg font-bold">
+            {finalProps.date || new Date().toLocaleDateString()}
+          </div>
+        </div>
+      );
+
+    case 'alert':
+      return (
+        <div
+          style={{ ...containerStyle, backgroundColor: '#b91c1c', color: 'white' }}
+          className="p-4 rounded"
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle size={16} />
+            <span className="font-bold text-sm">Alert</span>
+          </div>
+          <div className="text-xs opacity-90">
+            {finalProps.message || 'Alert message'}
+          </div>
+        </div>
+      );
+
+    case 'link':
+      return (
+        <a
+          href={finalProps.url || '#'}
+          style={{ ...containerStyle, color: '#3b82f6', textDecoration: 'underline' }}
+          className="flex items-center justify-center"
+        >
+          {finalProps.text || 'Link'}
+        </a>
+      );
+
+    case 'custom':
+      return (
+        <div style={containerStyle} className="text-[10px] break-all px-2">
+          {JSON.stringify(finalProps)}
+        </div>
+      );
+
+    case 'gallery': {
+      const urls: string[] = finalProps.urls || [];
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            display: 'grid',
+            gridTemplateColumns: `repeat(${finalProps.columns || 2}, 1fr)`,
+            gap: 4,
+            padding: 4,
+          }}
+          className="overflow-auto w-full h-full"
+        >
+          {urls.length === 0
+            ? [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="w-full h-24 bg-neutral-700 flex items-center justify-center text-xs text-neutral-300"
+                >
+                  Image {i}
+                </div>
+              ))
+            : urls.map((u, i) => (
+                <img
+                  key={i}
+                  src={u}
+                  alt="Gallery"
+                  className="w-full h-24 object-cover rounded"
+                />
+              ))}
+        </div>
+      );
+    }
+
+    case 'news':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            alignItems: 'flex-start',
+            padding: 12,
+            overflow: 'auto',
+          }}
+        >
+          <div className="text-[10px] uppercase font-bold text-orange-500 mb-2 flex items-center gap-1">
+            <Globe size={12} /> News
+          </div>
+          <ul className="space-y-1 text-xs text-left">
+            <li>Restaurant group opens 3 new locations.</li>
+            <li>Limited-time breakfast menu launches Monday.</li>
+            <li>Mobile ordering volume hits new record.</li>
+          </ul>
+        </div>
+      );
+
+    case 'social':
+      return (
+        <div
+          style={{
+            ...containerStyle,
+            alignItems: 'flex-start',
+            padding: 12,
+            overflow: 'auto',
+          }}
+        >
+          <div className="text-[10px] uppercase font-bold text-sky-400 mb-2 flex items-center gap-1">
+            <Globe size={12} /> Social Feed
+          </div>
+          <div className="space-y-1 text-xs">
+            <div>@accelrestaurants: "New lunch combos now live!"</div>
+            <div>@foodie123: "Best burger in town. 🔥"</div>
+            <div>@deliveryapp: "Free delivery this weekend."</div>
+          </div>
+        </div>
+      );
+
+    default: {
+      const def = TILE_REGISTRY[type as TileTypeKey];
+      return (
+        <div
+          style={{ ...containerStyle, border: '1px dashed #555' }}
+          className="relative group"
+        >
+          {def?.icon && <def.icon size={24} className="opacity-50 mb-2" />}
+          <span className="text-[10px] uppercase font-bold tracking-wider opacity-70">
+            {def?.label || type}
+          </span>
+          <span className="text-[9px] opacity-40 mt-1 max-w-[90%] truncate text-center">
+            {JSON.stringify(finalProps).slice(0, 30)}...
+          </span>
+        </div>
+      );
+    }
   }
 }
