@@ -1,0 +1,276 @@
+# AccelRestaurants™ Digital Menu & Growth Platform: Production-Level Description (Version 3.0)
+
+This document provides an updated, comprehensive production-level description of the **AccelRestaurants™ Digital Menu & Growth Platform**, evolving from the MVP in `AccelRestaurants.txt` (React-based frontend prototype) and incorporating enhancements from `AccelRestaurants_2.0.txt`. It emphasizes remote deployment, database-backed persistence, restaurant-specific player URLs, tile type cleanup aligned with `types list.txt`, user-created tile templates, and holistic integration of restaurant services (e.g., menu strategy, hyper-targeted campaigns, trade area analysis, and KPI dashboards) as referenced in `AccelRestaurants_2.0.txt` and implied from `https://restaurants.accelanalysis.com` (e.g., "Turn local data into full tables, stronger tickets, and smarter growth"). 
+
+The platform remains branded consistently with `https://accelanalysis.com`: dark-neutral backgrounds, orange accents (#fbbf24), clean typography (Inter font family), and the tagline “Clarity. Strategy. Execution.” The UI baseline follows the MVP's layout (dashboard for locations/screens, slide editor with palette/canvas/properties, and fullscreen display player), but with backend integration, multi-tenancy, and expanded modules.
+
+Key updates in this version:
+- **Tile Cleanup**: Strictly limit base tiles to those in `types list.txt` (46 canonical types). MVP's extraneous types (e.g., `menuItem`, `specialBanner`, `wifiDetails`) are migrated to tile templates.
+- **Remote Deployment**: Full backend with database, API-driven config fetching, player heartbeats, and caching for offline resilience.
+- **Player URLs**: Secure, token-based URLs for TVs/browsers, with auto-refresh and monitoring.
+- **Tile Templates**: Enhanced with versioning, linking (for propagating changes), and Accel-prebuilt templates.
+- **Service Integration**: Deeper ties to menu data, campaigns, trade areas, and KPIs, enabling end-to-end restaurant growth (e.g., bind menu items to tiles, track QR redemptions across channels).
+- **Security & Scalability**: Multi-tenant design, role-based access, and performance optimizations.
+
+---
+
+## 1. Platform Identity & Vision
+
+**Name:** AccelRestaurants™ – Digital Menu & Growth Platform  
+**Owner:** Accel Analysis, LLC  
+**Branding:** Dark theme (#1f2937 background, #fbbf24 accents), Inter font, orange buttons/icons. Logo: Stylized "AR" with acceleration arrow, alongside "Clarity. Strategy. Execution."  
+
+**High-level Promise:**  
+> “Turn local data into full tables, stronger tickets, and smarter growth” by unifying digital menu boards, hyper-targeted campaigns, menu strategy tools, trade area insights, and KPI dashboards into a seamless platform for restaurants, cafés, and food concepts.
+
+Core Value Pillars (aligned with `https://restaurants.accelanalysis.com`):  
+1. **Digital Signage Core**: Remotely manage menu/promotional screens with drag-and-drop design.  
+2. **Menu & Offer Optimization**: Reuse menu data across screens, print, and campaigns to boost average ticket size.  
+3. **Growth Tools**: Hyper-targeted direct mail/email/social campaigns, trade area/delivery radius mapping, and real-time KPIs for measurable ROI.  
+4. **Simplicity for Operators**: "Restaurant-ready" workflows – no coding, quick setups, and automated updates.
+
+Target Users: Restaurant owners/managers (multi-location chains or independents) seeking integrated tools for traffic growth, ticket uplift, and operational efficiency.
+
+---
+
+## 2. Current MVP Baseline & Migration Notes
+
+The MVP (`AccelRestaurants.txt`) is a frontend-only React app with local state persistence. Key components:  
+- **Dashboard**: Manages locations, screens (as monitor icons on canvas), and slide library (draggable to screens).  
+- **Slide Editor**: Tile palette (left), canvas (center) with Rnd elements (drag/resize), properties panel (right) for type-specific edits.  
+- **Display Player**: Fullscreen slide rotator for selected screens.  
+- **Persistence**: JSON import/export.  
+- **Tiles**: Hard-coded `TILE_TYPES` array (46+ items, including extraneous like `menuItem`, `price`, `ratingStar`). Rendering logic in `RndElement` (core media, info cards, widgets, placeholders).  
+
+**Migration to Production:**  
+- Extract UI components (e.g., `RestaurantSignageApp`, `RndElement`, `DisplayPlayer`) into a Next.js frontend.  
+- Replace local state with API calls (e.g., fetch slides from backend).  
+- Cleanup `TILE_TYPES`: Map to `types list.txt` registry; convert extraneous to templates (e.g., `menuItem` becomes a template combining `text`, `price`, `image`).  
+- Add backend for persistence, auth, and player APIs.
+
+---
+
+## 3. Canonical Tile System
+
+### 3.1 Base Tile Types (Global Type Registry)
+
+Strictly derived from `types list.txt` (46 types). Each is a foundational building block with:  
+- `key` (e.g., `text`, `image`).  
+- Icon (from Lucide, e.g., `Type` for `text`).  
+- Label & description.  
+- Default props schema (e.g., `content`, `color`, `url`).  
+- Behavior notes (e.g., `weather` uses wttr.in API; `qrcode` generates via api.qrserver.com).  
+
+**Full Registry (abbreviated; exact from `types list.txt`):**  
+- **Core Media/Text**: `text` (multi-line text), `image` (PNG/JPG/GIF/WebP), `gif` (animated GIF), `video` (MP4/WEBM), `audio` (looping MP3/stream).  
+- **Shapes/Backgrounds**: `shape` (rect/circle, bgcolor), `gradient` (color1,color2), `scene` (slideshow URLs).  
+- **Data Viz**: `bar` (comma-separated numbers), `pie` (numbers), `table` (CSV text), `progress` (0-100).  
+- **Dynamic/Feeds**: `rss` (feed URL, ticker), `marquee` (scrolling text), `quote` (random quote), `random_image` (Unsplash keyword).  
+- **Time/Location**: `clock` (digital), `date` (today's date), `timer` (count-up from date), `countdown` (to date), `map` (Google Maps embed), `weather` (text, city), `weather_detailed` (JSON parsed), `weather_icon` (animated icons), `emojiWeather` (emoji-based).  
+- **Embeds/Interactive**: `html` (safe HTML), `iframe` (website embed), `youtube` (autoplay URL), `vimeo` (URL), `3dmodel` (GLB/GLTF URL, <model-viewer>), `lottie` (JSON animation URL).  
+- **Specialized**: `qrcode` (text/URL), `crypto` (symbol price), `stock` (ticker price), `sheetcell` (Google Sheet cell), `status` (ok/warn/alert indicator), `icon` (emoji/icon), `menu` (grid of buttons, JSON/CSV), `list` (bullet list from lines), `particles` (animation), `flipboard` (number animation), `mic` (visualizer, needs permission), `openai` (prompt, needs API key), `camera` (HLS stream URL), `carousel` (rotating URLs), `avatar` (circular image).  
+
+**Properties Schema:** Each type has a fixed set of editable props (e.g., `text`: content, fontSize, color, textAlign; `image`: url, fitMode, borderRadius). MVP's props are aligned/trimmed to these. No new base types; extensions via templates.
+
+**Rendering Updates:**  
+- Reuse MVP's `RndElement` logic, but centralize in a `TileRenderer` component.  
+- Dynamic tiles (e.g., `weather`, `stock`) fetch data client-side (player) with caching.  
+- Error handling: Fallback UI for media failures (as in MVP).
+
+### 3.2 Tile Templates (User & Accel Presets)
+
+**Entity: `TileTemplate`**  
+- `id`  
+- `organizationId` (or null for Accel global presets)  
+- `baseTileTypeKey` (from registry, e.g., `text`)  
+- `name` (e.g., "Menu Item Card – Wide")  
+- `tags` (array, e.g., ["menu", "promo", "lunch"])  
+- `defaultProps` (JSON overriding base props, e.g., {fontSize: 36, color: "#fbbf24"})  
+- `thumbnailUrl` (server-generated preview image)  
+- `version` (integer; increments on edits)  
+- `isLinked` (flag for instances to auto-update on template changes)  
+
+**Usage in UI:**  
+- Slide Editor palette: Tabs for **Base Tiles** (registry), **My Templates** (org-specific), **Accel Templates** (prebuilt by Accel, e.g., "Daily Deal Banner" as `text` + `price` preset).  
+- Drag template to canvas: Creates `TileInstance` with defaultProps.  
+- Optional linking: When placing, checkbox "Link to template" – future template edits propagate to linked instances via API push.
+
+**Create/Edit Flow:**  
+1. Customize a base tile on canvas.  
+2. "Save as Template": Prompt for name/tags; auto-generate thumbnail.  
+3. Edit: Update props/version; option to "Propagate to linked instances" (triggers player config refresh).
+
+This enables MVP's extraneous types as templates (e.g., `specialBanner` → template on `text` with bold/uppercase props).
+
+---
+
+## 4. Core Domain Model
+
+### 4.1 Multi-Tenant Accounts
+
+**Organization** (Restaurant Group)  
+- `id`, `name`, `brandConfig` (logoUrl, primaryColor, fonts), `plan` (Free/Basic/Growth/Enterprise), `defaultTimezone`, billingInfo.  
+
+**User**  
+- `id`, `email`, `name`, `organizationId`, `role` (Owner, Manager, Staff, AccelAdmin).  
+- Auth: JWT via Supabase/Auth0, with row-level security.
+
+### 4.2 Locations, Screens, and Players
+
+**Location**  
+- `id`, `organizationId`, `name`, `address`, `latLng`, `tradeAreaProfile` (JSON: rings, demographics).  
+
+**Screen**  
+- `id`, `locationId`, `name`, `aspectRatio` (e.g., "16:9"), `orientation` ("landscape"), `rotationMs` (default 10000), `playlistId`, `daypartSchedules` (array of rules).  
+
+**PlayerDevice**  
+- `id`, `screenId`, `playerToken` (UUID), `status` ("online"), `lastHeartbeatAt`, `configHash` (MD5 of current config).  
+
+### 4.3 Slides, Playlists, and Instances
+
+**Slide**  
+- `id`, `organizationId`, `name`, `background` (color/scene), `width` (800), `height` (450), `elements` (TileInstance array).  
+
+**TileInstance**  
+- `id`, `slideId`, `tileTypeKey`, `tileTemplateId` (optional), `x`, `y`, `width`, `height`, `zIndex`, `props` (JSON), `dataBindings` (e.g., {content: "menuItem.name"}), `opacity`.  
+
+**Playlist**  
+- `id`, `organizationId`, `name`, `items` (array: {slideId, durationMs}).  
+
+### 4.4 Menu & Growth Entities
+
+**MenuItem**  
+- `id`, `organizationId`, `locationId` (optional), `name`, `description`, `basePrice`, `category`, `tags`, `imageUrl`, `nutrition` (JSON).  
+
+**MenuSection**  
+- `id`, `name`, `displayOrder`, `menuItemIds` (array).  
+
+**Campaign**  
+- `id`, `organizationId`, `name`, `objective`, `channels` (array: "direct_mail", "digital_menu"), `startDate`, `endDate`, `offerCode`, `metrics` (JSON: impressions, redemptions).  
+
+**CampaignSegment**  
+- `id`, `campaignId`, `type` ("radius", "demographic"), `geoJson` (polygons/rings).  
+
+**KpiMetric** (for dashboards)  
+- Aggregated views (salesByDaypart, avgTicket, promoRedemptions).
+
+---
+
+## 5. Slides, Playlists, and Scheduling
+
+- **Daypart Rules**: As in `AccelRestaurants_2.0.txt`; player resolves locally based on timezone.  
+- **Bindings**: Tiles can bind to MenuItems (e.g., auto-update price) or external sources (e.g., `sheetcell` for POS exports). Changes trigger config refresh.
+
+---
+
+## 6. Remote Deployment & Player Behavior
+
+### 6.1 Player App Flow
+
+Load `https://screens.accelrestaurants.com/p/{playerToken}`:  
+1. Fetch `/api/players/{playerToken}`: Returns screen config, playlist, slides, templates (with hash).  
+2. Cache in IndexedDB.  
+3. Render loop using MVP's `DisplayPlayer` logic (fullscreen, rotations).  
+4. Heartbeat every 5min: POST metrics; API responds with refresh flag if hash changed.  
+5. Offline: Use cache; fallback to "No Signal" only if empty.
+
+### 6.2 Remote Updates
+
+- Changes (slides/templates/menu) increment org-wide `configVersion`.  
+- Players poll or use WebSockets for pushes.  
+- Restaurant-specific URLs: Generated per player, scannable QR for setup.
+
+---
+
+## 7. Restaurant Menu & Offer Layer
+
+- Menu data reusable: Bind tiles to MenuItems for dynamic updates.  
+- Integration: Export menus for print; tie to campaigns (e.g., promo prices).
+
+---
+
+## 8. Campaigns, Direct Mail, & QR Tracking
+
+- As in `AccelRestaurants_2.0.txt`; QR tiles auto-use campaign offerCode.  
+- Track cross-channel: Mail redemptions + screen QR scans → unified ROI.
+
+---
+
+## 9. Trade Area & Delivery Radius Integration
+
+- Map UI per location: Rings, polygons, segments.  
+- Campaign targeting: Select segments for mail/digital.  
+- Tie to screens: Tag slides for area-specific content.
+
+---
+
+## 10. KPI Dashboards
+
+- Views: Sales/daypart, ticket mix, promo performance, screen health.  
+- Sources: POS imports, campaign metrics, player logs.  
+- UI: Simple charts/tables, orange accents.
+
+---
+
+## 11. Application UX & Layout
+
+Baseline: MVP's three views, extended.  
+- **Global Shell**: Top bar with logo, selectors, nav (Screens, Menu, Campaigns, Trade Area, KPIs, Settings).  
+- **Screens Module**: Left: Locations/slides; Center: Canvas; Right: Details.  
+- **Slide Editor**: Left: Palette (tabs); Center: Canvas; Right: Props.  
+- **Other Modules**: Similar layouts (e.g., Campaigns: List left, editor center).
+
+---
+
+## 12. Backend Architecture & Data Storage
+
+- **Frontend**: Next.js (React).  
+- **Backend**: Node.js/NestJS.  
+- **DB**: PostgreSQL (multi-tenant).  
+- **Realtime**: Socket.io.  
+- **Storage**: S3 for media/thumbnails.  
+- **APIs**: REST (e.g., /api/slides, /api/players/{token}).
+
+---
+
+## 13. Non-Functional Requirements
+
+- **Performance**: 60fps rendering; media preload.  
+- **Reliability**: Cached offline play; heartbeats for monitoring.  
+- **Security**: JWT auth; token-based players; RLS in DB.  
+- **Scalability**: Org-scoped queries; CDN for media.
+
+---
+
+## 14. Build Plan
+
+### Phase 1: Backend Setup & MVP Migration
+1. Set up NestJS backend with PostgreSQL (migrate domain model).  
+2. Implement auth (Supabase) and multi-tenancy.  
+3. Port MVP state to API endpoints (locations, screens, slides, tiles).  
+4. Cleanup tiles: Load registry from JSON; migrate extraneous to templates.  
+5. Extract `DisplayPlayer` to standalone Next.js page with token-based fetching.
+
+### Phase 2: Player Deployment & Templates
+1. Add player entities/APIs (tokens, heartbeats, caching).  
+2. Implement tile templates (create/edit/propagate).  
+3. Enhance player: WebSockets, offline fallback.  
+4. Generate/shareable URLs/QRs in UI.
+
+### Phase 3: Menu & Bindings 
+1. Add MenuItem/Section entities.  
+2. Implement data bindings in tiles (UI selector for menu fields).  
+3. Auto-refresh players on menu changes.
+
+### Phase 4: Growth Modules
+1. Campaigns: Entities, UI (list/editor), QR integration.  
+2. Trade Area: Map component (Leaflet/Google Maps), segments.  
+3. KPIs: Dashboard UI with charts (Recharts), data imports.  
+4. Cross-integrations (e.g., campaign tags on slides).
+
+### Phase 5: Polish, Testing, Launch 
+1. Branding alignment (colors, fonts).  
+2. End-to-end testing: Player setup, remote updates, offline.  
+3. Security audit; performance optimizations.  
+4. Seed data: Accel templates, demo orgs.  
+5. Deploy: Vercel/AWS; monitor with Sentry.

@@ -1,0 +1,46 @@
+3dmodel	Displays GLB/GLTF model	type: 3dmodel, content: URL	Uses <model-viewer>
+audio	Plays looping audio	type: audio, content: MP3 URL	Works with live radio streams
+avatar	Circular image with border	type: avatar, content: URL	auto-cropped circle
+bar	Simple bar chart	type: bar, content: comma-separated numbers	34,22,58,91
+camera	Live HLS stream (security cam)	type: camera, content: stream URL	Needs .m3u8 HLS stream
+carousel	Rotates through multiple contents	type: carousel, content: comma-separated URLs	Auto-rotates
+clock	Live updating digital clock	type: clock	No content needed
+countdown	Countdown to a future date/time	type: countdown, content: date/time	2025-12-25 0:00
+crypto	Crypto spot price	type: crypto, content: symbol	BTC, ETH
+date	Displays today’s date	type: date	Format uses browser locale
+emojiWeather	Weather shown via emoji	type: emojiWeather, content: city	☀️ 🌧️ ⛈️ ❄️
+flipboard	Split-flap number animation	type: flipboard, content: number	Auto-animation
+gif	Dedicated animated GIF support	type: gif, content: GIF URL	(image type also works)
+gradient	Gradient background tile	type: gradient, content: "color1,color2"	#ff0000,#0000ff
+html	Raw HTML (safe subset)	type: html, content: html code	<h1>Title</h1>
+icon	Large icon or emoji tile	type: icon, content: emoji/icon name	⚠️, 🔔, 🚀
+iframe	Embeds any website	type: iframe, content: URL	Some sites block iframes
+image	Shows PNG/JPG/GIF/WebP	type: image, content: URL	Transparent PNGs supported
+list	Turns content into a bullet list	type: list, content: lines	Item 1\nItem 2\nItem 3
+lottie	JSON animation (vector)	type: lottie, content: URL to .json	Requires lottie-web script
+map	Google Maps embed	type: map, content: place or address	Any string Google Maps supports
+marquee	Scrolling horizontal text	type: marquee, content: text	Add CSS for animation
+menu	Grid of buttons	type: menu, content: JSON or CSV	Kiosk-style layouts
+mic	Microphone visualizer bars	type: mic	Requires browser mic permission
+openai	Tile that shows AI-generated text	type: openai, content: prompt text	Requires API key
+particles	Floating particle animation	type: particles	CSS/JS particle effect
+pie	Simple pie chart	type: pie, content: comma-separated numbers	12,88
+progress	Percent progress bar	type: progress, content: number 0–100	e.g. 72
+qrcode	Generates QR code	type: qrcode, content: text/URL	Uses api.qrserver.com
+quote	Random inspirational quote	type: quote	No content needed
+random_image	Random image from keyword	type: random_image, content: keyword	Uses Unsplash
+rss	RSS news ticker	type: rss, content: RSS feed URL	Auto-scrolls if long
+scene	Background slideshow	type: scene, content: comma-separated image URLs	fades between them
+shape	Pure rectangle or circle	type: shape, bgcolor, radius	radius 50% = circle
+sheetcell	Pulls value from a Google Sheet cell	type: sheetcell, content: CSV export URL + cell	e.g. <CSV URL>#A1
+status	Red/yellow/green indicator	type: status, content: ok/warn/alert	Auto-colors
+stock	Stock price tile	type: stock, content: ticker	AAPL, MSFT
+table	Renders a table	type: table, content: CSV-style text	A,B,C\n1,2,3
+text	Displays static or multi-line text	type: text, content: your text	Hello\nLine Two (use \n for line breaks)
+timer	Count-up timer since a start date	type: timer, content: date/time	2025-01-01 0:00
+video	MP4 / MOV / WEBM tile	type: video, content: direct file URL	Best loop quality: MP4
+vimeo	Vimeo video embed	type: video, content: Vimeo URL	Uses iframe background player
+weather	Simple weather (text)	type: weather, content: city name	Uses wttr.in
+weather_detailed	Includes wind, humidity, etc.	type: weather_detailed, content: city	JSON parsed from wttr.in
+weather_icon	Animated weather icons	type: weather_icon, content: city	Uses weather → picks icon
+youtube	YouTube autoplay embed	type: youtube, content: YouTube URL	Supports muted looping via playlist

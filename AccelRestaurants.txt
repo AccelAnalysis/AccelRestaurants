@@ -1,0 +1,940 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Layout, Monitor, Image as ImageIcon, Type, Video, 
+  MousePointer2, Save, Upload, Download, Play, 
+  Plus, Trash2, Settings, Layers, ChevronLeft, 
+  ChevronRight, Move, X, Minimize2, Maximize2,
+  Clock, MapPin, Grid, DollarSign, Box, Utensils,
+  Share2, QrCode, Sun, Star, AlertTriangle, MessageSquare,
+  Twitter, Instagram, ListChecks, Calendar, Phone,
+  Wifi, ThumbsUp, TrendingUp, Globe, AlertCircle, Music
+} from 'lucide-react';
+
+/**
+ * UTILITIES
+ */
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+// --- TILE DEFINITION: 46 Types with Detailed Properties ---
+const TILE_TYPES = [
+  // --- CORE TYPES (8) ---
+  { type: 'text', icon: Type, label: 'Text Block', 
+    defaultProps: { content: 'New Text Block', fontSize: 24, fontFamily: 'Inter', color: '#ffffff', textAlign: 'left', fontWeight: 'normal' },
+    properties: [
+      { key: 'content', label: 'Text Content', type: 'textarea' },
+      { key: 'fontSize', label: 'Font Size (px)', type: 'number', min: 10, max: 120 },
+      { key: 'fontFamily', label: 'Font Family', type: 'select', options: ['Inter', 'serif', 'monospace', 'cursive'] },
+      { key: 'color', label: 'Text Color', type: 'color' },
+      { key: 'textAlign', label: 'Alignment', type: 'select', options: ['left', 'center', 'right'] },
+      { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold', 'lighter'] },
+    ]
+  },
+  { type: 'price', icon: DollarSign, label: 'Price Tag', 
+    defaultProps: { content: '12.99', fontSize: 36, color: '#fbbf24', currencySymbol: '$', decimalPlaces: 2, priceFormat: 'prefix' },
+    properties: [
+      { key: 'content', label: 'Price Value', type: 'text' },
+      { key: 'fontSize', label: 'Font Size (px)', type: 'number', min: 18, max: 100 },
+      { key: 'color', label: 'Price Color', type: 'color' },
+      { key: 'currencySymbol', label: 'Symbol', type: 'text' },
+      { key: 'decimalPlaces', label: 'Decimals', type: 'number', min: 0, max: 3 },
+      { key: 'priceFormat', label: 'Format', type: 'select', options: ['prefix ($.99)', 'suffix (.99$)'] }
+    ]
+  },
+  { type: 'image', icon: ImageIcon, label: 'Static Image',
+    defaultProps: { imageUrl: 'https://placehold.co/150x150/374151/ffffff?text=Image', fitMode: 'cover', borderRadius: 8, caption: '', cropX: 50, cropY: 50 },
+    properties: [
+      { key: 'imageUrl', label: 'Image URL', type: 'text' },
+      { key: 'fitMode', label: 'Fit Mode', type: 'select', options: ['cover', 'contain', 'fill'] },
+      { key: 'borderRadius', label: 'Corner Radius (px)', type: 'number', min: 0, max: 50 },
+      { key: 'cropX', label: 'Crop X (%)', type: 'range', min: 0, max: 100 },
+      { key: 'cropY', label: 'Crop Y (%)', type: 'range', min: 0, max: 100 },
+      { key: 'caption', label: 'Caption Text', type: 'text' },
+    ]
+  },
+  { type: 'video', icon: Video, label: 'Video Player',
+    defaultProps: { videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4', loop: true, autoplay: true, mute: true, startTime: 0, fitMode: 'cover', cropX: 50, cropY: 50 },
+    properties: [
+      { key: 'videoUrl', label: 'Video URL', type: 'text' },
+      { key: 'fitMode', label: 'Fit Mode', type: 'select', options: ['cover', 'contain', 'fill'] },
+      { key: 'cropX', label: 'Crop X (%)', type: 'range', min: 0, max: 100 },
+      { key: 'cropY', label: 'Crop Y (%)', type: 'range', min: 0, max: 100 },
+      { key: 'loop', label: 'Loop Video', type: 'checkbox' },
+      { key: 'autoplay', label: 'Autoplay', type: 'checkbox' },
+      { key: 'mute', label: 'Mute Audio', type: 'checkbox' },
+      { key: 'startTime', label: 'Start Time (s)', type: 'number', min: 0 },
+    ]
+  },
+  { type: 'shape', icon: Box, label: 'Background Shape',
+    defaultProps: { backgroundColor: '#333333', borderRadius: 0, opacity: 0.8, shapeType: 'rect', strokeColor: 'transparent' },
+    properties: [
+      { key: 'backgroundColor', label: 'Fill Color', type: 'color' },
+      { key: 'borderRadius', label: 'Corner Radius (px)', type: 'number', min: 0, max: 100 },
+      { key: 'opacity', label: 'Opacity (0-1)', type: 'range', min: 0, max: 1, step: 0.05 },
+      { key: 'shapeType', label: 'Shape Type', type: 'select', options: ['rect', 'circle', 'pill'] },
+      { key: 'strokeColor', label: 'Border Color', type: 'color' },
+    ]
+  },
+  { type: 'weather', icon: Sun, label: 'Weather Widget',
+    defaultProps: { city: 'Newport News', displayMode: 'icon', units: 'F', color: '#ffffff' },
+    properties: [
+      { key: 'city', label: 'City/Location', type: 'text' },
+      { key: 'units', label: 'Units', type: 'select', options: ['C', 'F'] },
+      { key: 'color', label: 'Icon/Text Color', type: 'color' },
+    ]
+  },
+  { type: 'clock', icon: Clock, label: 'Digital Clock',
+    defaultProps: { format: '12h', showSeconds: false, color: '#ffffff', fontWeight: 'bold' },
+    properties: [
+      { key: 'format', label: 'Time Format', type: 'select', options: ['12h', '24h'] },
+      { key: 'showSeconds', label: 'Show Seconds', type: 'checkbox' },
+      { key: 'color', label: 'Text Color', type: 'color' },
+      { key: 'fontWeight', label: 'Weight', type: 'select', options: ['normal', 'bold'] },
+    ]
+  },
+  { type: 'QR', icon: QrCode, label: 'QR Code',
+    defaultProps: { dataUrl: 'https://restaurant.com/menu', foregroundColor: '#000000', backgroundColor: '#ffffff', label: 'Scan Me' },
+    properties: [
+      { key: 'dataUrl', label: 'QR Content (URL)', type: 'text' },
+      { key: 'label', label: 'Label Below', type: 'text' },
+      { key: 'foregroundColor', label: 'QR Color', type: 'color' },
+      { key: 'backgroundColor', label: 'Background Color', type: 'color' },
+    ]
+  },
+
+  // --- CARD & INFO TYPES (10) ---
+  { type: 'menuItem', icon: Utensils, label: 'Menu Item Card',
+    defaultProps: { title: 'Burger Supreme', price: '15.00', description: 'Truffle aioli, swiss cheese, brioche.', highlightColor: '#fbbf24', imageUrl: '' },
+    properties: [
+      { key: 'title', label: 'Item Name', type: 'text' },
+      { key: 'price', label: 'Price', type: 'text' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      { key: 'imageUrl', label: 'Image URL (Optional)', type: 'text' },
+      { key: 'highlightColor', label: 'Highlight Color', type: 'color' },
+    ]
+  },
+  { type: 'specialBanner', icon: Star, label: 'Banner/Callout', 
+    defaultProps: { title: 'TODAY ONLY!', description: '50% Off All Appetizers', backgroundColor: '#ef4444', color: '#ffffff' },
+    properties: [
+      { key: 'title', label: 'Main Text', type: 'text' },
+      { key: 'description', label: 'Sub Text', type: 'text' },
+      { key: 'backgroundColor', label: 'Banner Color', type: 'color' },
+      { key: 'color', label: 'Text Color', type: 'color' },
+    ]
+  },
+  { type: 'dailyDeal', icon: Calendar, label: 'Daily Deal', 
+    defaultProps: { title: 'Taco Tuesday', price: '2.00', description: 'Beef or Chicken Tacos', highlightColor: '#f97316' },
+    properties: [
+      { key: 'title', label: 'Deal Name', type: 'text' },
+      { key: 'price', label: 'Deal Price', type: 'text' },
+      { key: 'description', label: 'Details', type: 'textarea' },
+      { key: 'highlightColor', label: 'Accent Color', type: 'color' },
+    ]
+  },
+  { type: 'comboOffer', icon: Plus, label: 'Combo Offer', 
+    defaultProps: { title: 'Family Pack', price: '45.00', description: '2 Pizzas + 4 Drinks + Wings', highlightColor: '#8b5cf6' },
+    properties: [{ key: 'title', label: 'Title', type: 'text' }, { key: 'price', label: 'Price', type: 'text' }, { key: 'description', label: 'Includes', type: 'textarea' }] 
+  },
+  { type: 'drinkSpecial', icon: Utensils, label: 'Drink Special', 
+    defaultProps: { title: 'Mojito', price: '8.00', description: 'Fresh mint and lime.', highlightColor: '#10b981' },
+    properties: [{ key: 'title', label: 'Drink Name', type: 'text' }, { key: 'price', label: 'Price', type: 'text' }, { key: 'description', label: 'Description', type: 'text' }]
+  },
+  { type: 'dessertCard', icon: Utensils, label: 'Dessert Highlight', 
+    defaultProps: { title: 'Lava Cake', price: '9.00', description: 'Molten chocolate center.', highlightColor: '#ec4899', imageUrl: '' },
+    properties: [{ key: 'title', label: 'Name', type: 'text' }, { key: 'price', label: 'Price', type: 'text' }, { key: 'imageUrl', label: 'Image URL', type: 'text' }]
+  },
+  { type: 'soupOfTheDay', icon: Utensils, label: 'Soup Display', 
+    defaultProps: { title: 'Soup of the Day', description: 'Tomato Basil', highlightColor: '#ef4444' },
+    properties: [{ key: 'description', label: 'Soup Name', type: 'text' }]
+  },
+  { type: 'featuredChef', icon: Utensils, label: 'Chef Bio', 
+    defaultProps: { title: 'Chef Gordon', description: 'Master of the grill.', imageUrl: '', highlightColor: '#3b82f6' },
+    properties: [{ key: 'title', label: 'Chef Name', type: 'text' }, { key: 'description', label: 'Bio', type: 'textarea' }, { key: 'imageUrl', label: 'Photo URL', type: 'text' }]
+  },
+  { type: 'staffPhoto', icon: Phone, label: 'Employee Highlight', 
+    defaultProps: { title: 'Employee of Month', description: 'Sarah J.', imageUrl: '', highlightColor: '#fbbf24' },
+    properties: [{ key: 'title', label: 'Title', type: 'text' }, { key: 'description', label: 'Name', type: 'text' }, { key: 'imageUrl', label: 'Photo URL', type: 'text' }]
+  },
+  { type: 'eventPromo', icon: Calendar, label: 'Event Promo', 
+    defaultProps: { title: 'Live Music', description: 'Friday Nights @ 8PM', highlightColor: '#8b5cf6' },
+    properties: [{ key: 'title', label: 'Event Name', type: 'text' }, { key: 'description', label: 'Time/Date', type: 'text' }]
+  },
+
+  // --- WIDGET & LIST TYPES (9) ---
+  { type: 'ratingStar', icon: Star, label: 'Star Rating', 
+    defaultProps: { rating: 4.5, maxRating: 5, color: '#fbbf24', showText: true },
+    properties: [
+      { key: 'rating', label: 'Rating (0-5)', type: 'number', step: 0.1, min: 0, max: 5 },
+      { key: 'color', label: 'Star Color', type: 'color' },
+      { key: 'showText', label: 'Show Score Text', type: 'checkbox' },
+    ]
+  },
+  { type: 'wifiDetails', icon: Wifi, label: 'WiFi Details', 
+    defaultProps: { ssid: 'Guest_WiFi', password: 'password123', color: '#ffffff', backgroundColor: '#3b82f6' },
+    properties: [
+      { key: 'ssid', label: 'Network Name (SSID)', type: 'text' },
+      { key: 'password', label: 'Password', type: 'text' },
+      { key: 'backgroundColor', label: 'Background Color', type: 'color' },
+    ]
+  },
+  { type: 'openingHours', icon: Clock, label: 'Hours List', 
+    defaultProps: { title: 'Opening Hours', line1: 'Mon-Fri: 9am - 10pm', line2: 'Sat-Sun: 10am - 11pm', color: '#ffffff', backgroundColor: '#1f2937' },
+    properties: [
+      { key: 'title', label: 'Header', type: 'text' },
+      { key: 'line1', label: 'Line 1', type: 'text' },
+      { key: 'line2', label: 'Line 2', type: 'text' },
+      { key: 'backgroundColor', label: 'Background', type: 'color' },
+    ]
+  },
+  { type: 'iframeEmbed', icon: Globe, label: 'Web Embed (Iframe)', 
+    defaultProps: { iframeUrl: 'https://www.wikipedia.org/', scrolling: 'no' },
+    properties: [
+      { key: 'iframeUrl', label: 'Website URL', type: 'text' },
+      { key: 'scrolling', label: 'Allow Scrolling', type: 'select', options: ['yes', 'no'] },
+    ]
+  },
+  { type: 'socialFeed', icon: Share2, label: 'Social Handle',
+    defaultProps: { platform: 'Instagram', handle: '@BurgerBar', color: '#E1306C' },
+    properties: [
+      { key: 'platform', label: 'Platform Name', type: 'text' },
+      { key: 'handle', label: 'Handle (@user)', type: 'text' },
+      { key: 'color', label: 'Brand Color', type: 'color' },
+    ]
+  },
+  
+  // --- UTILITY/MISC (4) ---
+  { type: 'allergyIcon', icon: AlertTriangle, label: 'Allergy Warning', defaultProps: { iconType: 'Gluten', color: '#ef4444' }, properties: [{ key: 'iconType', label: 'Label', type: 'text' }, { key: 'color', label: 'Color', type: 'color' }] },
+  { type: 'nutriFacts', icon: ListChecks, label: 'Nutritional Facts', defaultProps: { calories: '500 cal', protein: '20g', color: '#9ca3af' }, properties: [{ key: 'calories', label: 'Calories', type: 'text' }, { key: 'protein', label: 'Protein', type: 'text' }] },
+  { type: 'waitlist', icon: ListChecks, label: 'Waitlist Counter', defaultProps: { count: '12', label: 'Parties Waiting', color: '#fbbf24' }, properties: [{ key: 'count', label: 'Count', type: 'number' }, { key: 'label', label: 'Label', type: 'text' }] },
+  { type: 'callToAction', icon: MousePointer2, label: 'Button / CTA', defaultProps: { label: 'ORDER NOW', backgroundColor: '#ef4444', color: '#ffffff', borderRadius: 8 }, properties: [{ key: 'label', label: 'Text', type: 'text' }, { key: 'backgroundColor', label: 'Btn Color', type: 'color' }, { key: 'borderRadius', label: 'Radius', type: 'number' }] },
+
+  // Remaining placeholders mapped to generic renderers to ensure functionality (19 Types - 46 total)
+  { type: 'mapLocation', icon: MapPin, label: 'Map Placeholder', defaultProps: { address: '123 Main St' }, properties: [{key:'address', label:'Address', type:'text'}] },
+  { type: 'reviewQuote', icon: MessageSquare, label: 'Quote', defaultProps: { text: '"Best burger ever!"', author: '- John Doe' }, properties: [{key:'text', label:'Quote', type:'textarea'}, {key:'author', label:'Author', type:'text'}] },
+  { type: 'holidayTheme', icon: Star, label: 'Holiday Icon', defaultProps: { icon: '🎄' }, properties: [{key:'icon', label:'Emoji/Icon', type:'text'}] },
+  { type: 'tableStatus', icon: Grid, label: 'Table Status', defaultProps: { status: 'Open' }, properties: [{key:'status', label:'Status', type:'text'}] },
+  { type: 'deliveryInfo', icon: Grid, label: 'Delivery Badge', defaultProps: { platform: 'UberEats' }, properties: [{key:'platform', label:'Platform', type:'text'}] },
+  { type: 'loyaltyPoints', icon: ThumbsUp, label: 'Loyalty', defaultProps: { points: '150 pts', color: '#10b981' }, properties: [{key:'points', label:'Points', type:'text'}, {key:'color', label:'Color', type:'color'}] }, 
+  { type: 'voucherCode', icon: QrCode, label: 'Voucher', defaultProps: { code: 'SAVE10', color: '#f97316' }, properties: [{key:'code', label:'Code', type:'text'}, {key:'color', label:'Color', type:'color'}] },
+  { type: 'pollWidget', icon: MessageSquare, label: 'Poll', defaultProps: { question: 'Best Shake?', color: '#8b5cf6' }, properties: [{key:'question', label:'Question', type:'text'}, {key:'color', label:'Color', type:'color'}] },
+  { type: 'stockTicker', icon: TrendingUp, label: 'Stock', defaultProps: { symbol: 'AAPL +1.2%', color: '#10b981' }, properties: [{key:'symbol', label:'Data', type:'text'}, {key:'color', label:'Color', type:'color'}] },
+  { type: 'currencyConverter', icon: Globe, label: 'Currency', defaultProps: { rate: '1 USD = 0.9 EUR', color: '#fbbf24' }, properties: [{key:'rate', label:'Rate', type:'text'}, {key:'color', label:'Color', type:'color'}] }, 
+  { type: 'customHTML', icon: Globe, label: 'HTML Snippet', defaultProps: { html: '<div>Hello, World!</div>' }, properties: [{key:'html', label:'HTML', type:'textarea'}] },
+  { type: 'animation', icon: Play, label: 'Animation Placeholder', defaultProps: { name: 'Fade' }, properties: [{key:'name', label:'Effect', type:'text'}] },
+  { type: 'audioAlert', icon: Music, label: 'Audio Indicator', defaultProps: { track: 'Background Jazz' }, properties: [{key:'track', label:'Track Name', type:'text'}] },
+  { type: 'userWelcome', icon: MessageSquare, label: 'Welcome Msg', defaultProps: { name: 'Guest', color: '#3b82f6' }, properties: [{key:'name', label:'Name', type:'text'}, {key:'color', label:'Color', type:'color'}] }, 
+  { type: 'systemMessage', icon: AlertCircle, label: 'System Msg', defaultProps: { msg: 'System Normal', color: '#dc2626' }, properties: [{key:'msg', label:'Message', type:'text'}, {key:'color', label:'Color', type:'color'}] },
+  { type: 'gameScore', icon: Star, label: 'Scoreboard', defaultProps: { score: 'HOM 2 - 1 VIS', color: '#fbbf24' }, properties: [{key:'score', label:'Score', type:'text'}, {key:'color', label:'Color', type:'color'}] }, 
+  { type: 'trafficMap', icon: MapPin, label: 'Traffic Info', defaultProps: { info: 'Light Traffic' }, properties: [{key:'info', label:'Status', type:'text'}] },
+  { type: 'countdownTimer', icon: Clock, label: 'Countdown', defaultProps: { time: '00:15:00' }, properties: [{key:'time', label:'Time Left', type:'text'}] },
+  { type: 'transitionEffect', icon: Move, label: 'Transition', defaultProps: { type: 'Fade' }, properties: [{key:'type', label:'Type', type:'text'}] },
+];
+// --- END TILE DEFINITION ---
+
+const DEFAULT_SLIDE_DURATION = 5000;
+
+// Screen size constants for calculation
+const SCREEN_WIDTH = 128; // w-32
+const SCREEN_HEIGHT = 96; // h-24
+
+// Mock Data
+const INITIAL_DATA = {
+  locations: [
+    {
+      id: 'loc1',
+      name: 'Downtown Burger Bar',
+      screens: [
+        { 
+          id: 'screen1', 
+          name: 'Main Menu Board', 
+          x: 100, 
+          y: 100, 
+          slides: ['slide1', 'slide2'],
+          rotation: 8000
+        },
+        { 
+          id: 'screen2', 
+          name: 'Promo Vertical', 
+          x: 400, 
+          y: 100, 
+          slides: ['slide3'],
+          rotation: 5000 
+        }
+      ]
+    }
+  ],
+  slides: [
+    {
+      id: 'slide1',
+      name: 'Burger Specials',
+      background: '#1a1a1a',
+      elements: [
+        { id: 'el1', type: 'text', content: 'CLASSIC BURGER', x: 50, y: 50, width: 400, height: 60, fontSize: 40, color: '#ffffff', fontFamily: 'sans-serif', zIndex: 2, textAlign: 'left', fontWeight: 'bold' },
+        { id: 'el2', type: 'price', content: '12.99', x: 500, y: 50, width: 150, height: 60, fontSize: 40, color: '#fbbf24', currencySymbol: '$', decimalPlaces: 2, priceFormat: 'prefix', zIndex: 2 },
+        { id: 'el3', type: 'shape', content: '', x: 20, y: 20, width: 600, height: 120, backgroundColor: '#333333', zIndex: 1, opacity: 0.8, borderRadius: 12, shapeType: 'rect', strokeColor: 'transparent' },
+      ]
+    },
+    {
+      id: 'slide2',
+      name: 'Drinks Menu',
+      background: '#2d1b1b',
+      elements: [
+        { id: 'el4', type: 'text', content: 'Cold Drinks', x: 100, y: 100, width: 300, height: 50, fontSize: 32, color: '#fff', zIndex: 1, textAlign: 'center', fontWeight: 'normal' }
+      ]
+    },
+    {
+      id: 'slide3',
+      name: 'Weekend Promo',
+      background: '#0f172a',
+      elements: []
+    }
+  ]
+};
+
+/**
+ * MAIN COMPONENT
+ */
+export default function RestaurantSignageApp() {
+  // Global State
+  const [data, setData] = useState(INITIAL_DATA);
+  const firstLocationId = data.locations.length > 0 ? data.locations[0].id : null;
+  const [currentLocationId, setCurrentLocationId] = useState(firstLocationId);
+  
+  // Navigation State
+  const [view, setView] = useState('dashboard'); // dashboard, editor, display
+  const [editingSlideId, setEditingSlideId] = useState(null);
+  const [displayScreenId, setDisplayScreenId] = useState(null);
+
+  // Persistence
+  const handleExport = () => {
+    const jsonString = `data:text/json;chatset=utf-8,${encodeURIComponent(JSON.stringify(data))}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = "restaurant_design.json";
+    link.click();
+  };
+
+  const handleImport = (event) => {
+    const fileReader = new FileReader();
+    fileReader.readAsText(event.target.files[0], "UTF-8");
+    fileReader.onload = e => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        setData(parsed);
+        setCurrentLocationId(parsed.locations.length > 0 ? parsed.locations[0].id : null);
+      } catch (err) {
+        console.error("Invalid design file:", err);
+        alert("Invalid design file. Check console for details.");
+      }
+    };
+  };
+
+  const activeLocation = data.locations.find(l => l.id === currentLocationId) || { id: 'none', name: 'No Location Selected', screens: [] };
+
+  return (
+    <div className="w-full h-screen bg-neutral-900 text-white overflow-hidden font-sans">
+      {/* HEADER (Only visible in Dashboard/Editor) */}
+      {view !== 'display' && (
+        <header className="h-14 border-b border-neutral-700 flex items-center justify-between px-4 bg-neutral-800">
+          <div className="flex items-center gap-4">
+            <Layout className="text-orange-500" />
+            <h1 className="font-bold text-lg">OmniMenu <span className="text-xs font-normal text-neutral-400">Manager v2.4</span></h1>
+            
+            <div className="h-6 w-px bg-neutral-600 mx-2" />
+            
+            {/* Location Selector */}
+            <MapPin size={18} className="text-neutral-400" />
+            <select 
+              className="bg-neutral-700 border border-neutral-600 rounded px-2 py-1 text-sm outline-none focus:border-orange-500"
+              value={currentLocationId || ''}
+              onChange={(e) => setCurrentLocationId(e.target.value)}
+              disabled={data.locations.length === 0}
+            >
+              {data.locations.length === 0 ? (
+                <option value="">Add a Location</option>
+              ) : (
+                data.locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => document.getElementById('file-upload').click()}
+              className="p-2 hover:bg-neutral-700 rounded text-neutral-300 transition-colors" title="Import Design"
+            >
+              <Upload size={18} />
+              <input id="file-upload" type="file" className="hidden" onChange={handleImport} accept=".json" />
+            </button>
+            <button 
+              onClick={handleExport}
+              className="p-2 hover:bg-neutral-700 rounded text-neutral-300 transition-colors" title="Export Design"
+            >
+              <Download size={18} />
+            </button>
+            {view === 'editor' && (
+              <button 
+                onClick={() => setView('dashboard')}
+                className="ml-4 px-4 py-1.5 bg-neutral-700 hover:bg-neutral-600 rounded text-sm font-medium transition-colors"
+              >
+                Back to Dashboard
+              </button>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* MAIN CONTENT AREA */}
+      <main className="h-full relative">
+        {view === 'dashboard' && (
+          <Dashboard 
+            location={activeLocation} 
+            allSlides={data.slides}
+            updateData={setData}
+            currentLocationId={currentLocationId}
+            setCurrentLocationId={setCurrentLocationId} 
+            onEditSlide={(slideId) => {
+              setEditingSlideId(slideId);
+              setView('editor');
+            }}
+            onPlayScreen={(screenId) => {
+              setDisplayScreenId(screenId);
+              setView('display');
+            }}
+          />
+        )}
+
+        {view === 'editor' && (
+          <SlideEditor 
+            slideId={editingSlideId}
+            allSlides={data.slides}
+            updateData={setData}
+          />
+        )}
+
+        {view === 'display' && (
+          <DisplayPlayer 
+            screen={activeLocation.screens.find(s => s.id === displayScreenId)}
+            allSlides={data.slides}
+            onExit={() => setView('dashboard')}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+/**
+ * DASHBOARD COMPONENT
+ */
+function Dashboard({ location, allSlides, updateData, setCurrentLocationId, currentLocationId, onEditSlide, onPlayScreen }) {
+  const [draggedScreen, setDraggedScreen] = useState(null);
+  const [selectedScreenId, setSelectedScreenId] = useState(null);
+  const [newLocationName, setNewLocationName] = useState('');
+
+  const handleAddLocation = () => {
+    if (!newLocationName.trim()) return;
+    const newLocationId = generateId();
+    const newLocation = { id: newLocationId, name: newLocationName.trim(), screens: [] };
+    updateData(prev => ({ ...prev, locations: [...prev.locations, newLocation] }));
+    setNewLocationName('');
+    setCurrentLocationId(newLocationId);
+  };
+
+  const handleDragStart = (e, screenId) => {
+    setDraggedScreen(screenId);
+    e.dataTransfer.setData('screenId', screenId);
+  };
+
+  const handleDragOver = (e) => e.preventDefault();
+
+  const handleDropScreen = (e) => {
+    e.preventDefault();
+    if (location.id === 'none') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - (SCREEN_WIDTH / 2);
+    const y = e.clientY - rect.top - (SCREEN_HEIGHT / 2);
+
+    if (draggedScreen) {
+      updateData(prev => {
+        const newLocs = [...prev.locations];
+        const locIndex = newLocs.findIndex(l => l.id === location.id);
+        if (locIndex !== -1) {
+          const screenIndex = newLocs[locIndex].screens.findIndex(s => s.id === draggedScreen);
+          if (screenIndex !== -1) {
+            newLocs[locIndex].screens[screenIndex] = { ...newLocs[locIndex].screens[screenIndex], x: Math.max(0, x), y: Math.max(0, y) };
+          }
+        }
+        return { ...prev, locations: newLocs };
+      });
+      setDraggedScreen(null);
+      return;
+    }
+
+    const slideId = e.dataTransfer.getData('slideId');
+    if (slideId) {
+      const newScreenId = generateId();
+      const newScreen = {
+        id: newScreenId,
+        name: `New Screen ${location.screens.length + 1}`,
+        x: Math.max(0, x), y: Math.max(0, y),
+        slides: [slideId], rotation: DEFAULT_SLIDE_DURATION 
+      };
+      updateData(prev => {
+        const newLocs = [...prev.locations];
+        const locIndex = newLocs.findIndex(l => l.id === location.id);
+        if (locIndex !== -1) newLocs[locIndex].screens.push(newScreen);
+        return { ...prev, locations: newLocs };
+      });
+      setSelectedScreenId(newScreenId);
+    }
+  };
+
+  const createSlide = () => {
+    const newSlide = { id: generateId(), name: 'New Slide', background: '#111111', elements: [] };
+    updateData(prev => ({ ...prev, slides: [...prev.slides, newSlide] }));
+  };
+
+  const selectedScreen = location.screens.find(s => s.id === selectedScreenId);
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)]">
+      <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col">
+        <div className="p-4 border-b border-neutral-800">
+          <h2 className="font-semibold text-neutral-300 mb-2 flex items-center gap-1"><MapPin size={16} /> Location Management</h2>
+          <input type="text" placeholder="New Location Name" value={newLocationName} onChange={(e) => setNewLocationName(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm mb-2 focus:border-orange-500 outline-none" />
+          <button onClick={handleAddLocation} disabled={!newLocationName.trim()} className="w-full py-1.5 bg-orange-600 hover:bg-orange-500 disabled:bg-neutral-700 rounded text-sm font-medium"><Plus size={16} className="inline mr-1" /> Add Location</button>
+        </div>
+        <div className="p-4 border-b border-neutral-800 flex justify-between items-center">
+          <h2 className="font-semibold text-neutral-300">Slide Library ({allSlides.length})</h2>
+          <button onClick={createSlide} className="p-1 hover:bg-neutral-700 rounded"><Plus size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {allSlides.map(slide => (
+            <div key={slide.id} draggable onDragStart={(e) => e.dataTransfer.setData('slideId', slide.id)} className="bg-neutral-800 p-3 rounded border border-neutral-700 hover:border-orange-500 cursor-move group">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium">{slide.name}</span>
+                <button onClick={() => onEditSlide(slide.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-neutral-600 rounded text-xs">Edit</button>
+              </div>
+              <div className="w-full h-20 rounded bg-neutral-900 overflow-hidden relative" style={{ backgroundColor: slide.background }}>
+                {slide.elements.length > 0 && <div className="absolute inset-0 flex items-center justify-center text-neutral-600 text-xs">{slide.elements.length} items</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 bg-neutral-950 relative overflow-hidden" onDrop={handleDropScreen} onDragOver={handleDragOver} style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+        <div className="absolute top-4 left-4 bg-neutral-800/80 p-2 rounded text-xs text-neutral-400 backdrop-blur">Location: {location.name} Layout View</div>
+        {location.id === 'none' && <div className="absolute inset-0 flex items-center justify-center text-2xl text-neutral-600">Please add a new location to begin setting up screens.</div>}
+        {location.screens.map(screen => (
+          <div key={screen.id} draggable onDragStart={(e) => handleDragStart(e, screen.id)} onDragOver={(e) => e.preventDefault()} onClick={() => setSelectedScreenId(screen.id)} style={{ left: screen.x, top: screen.y, width: SCREEN_WIDTH, height: SCREEN_HEIGHT, borderWidth: selectedScreenId === screen.id ? '2px' : '1px' }} className={`absolute bg-neutral-800 rounded-lg shadow-xl cursor-move border-neutral-600 flex flex-col items-center justify-center transition-colors hover:border-orange-400 ${selectedScreenId === screen.id ? 'border-orange-500 bg-neutral-800' : ''}`}>
+            <Monitor className="text-neutral-500 mb-1" size={20} />
+            <span className="text-xs font-medium text-center px-1 truncate w-full">{screen.name}</span>
+            <span className="text-[10px] text-neutral-500">{(screen.slides || []).length} Slides</span>
+            <button onClick={(e) => { e.stopPropagation(); onPlayScreen(screen.id); }} className="absolute -top-2 -right-2 bg-green-600 text-white rounded-full p-1 shadow-lg hover:bg-green-500 hover:scale-110 transition-all"><Play size={10} fill="currentColor" /></button>
+          </div>
+        ))}
+      </div>
+
+      <div className={`w-80 bg-neutral-900 border-l border-neutral-800 flex flex-col transition-all duration-300 ${selectedScreenId ? 'translate-x-0' : 'translate-x-full absolute right-0 h-full'}`}>
+        {selectedScreen && (
+          <>
+            <div className="p-4 border-b border-neutral-800 flex justify-between items-center mb-4">
+               <h2 className="font-semibold text-lg">{selectedScreen.name}</h2>
+               <button onClick={() => setSelectedScreenId(null)}><X size={16} /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="text-xs text-neutral-500 uppercase">Rotation (ms)</label>
+                <input type="number" value={selectedScreen.rotation} onChange={(e) => updateData(prev => { const newLocs = [...prev.locations]; const loc = newLocs.find(l => l.id === location.id); if (loc) { const s = loc.screens.find(sc => sc.id === selectedScreen.id); if (s) s.rotation = parseInt(e.target.value); } return { ...prev, locations: newLocs }; })} className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 mt-1 text-sm" />
+              </div>
+              <button onClick={() => { updateData(prev => ({ ...prev, locations: prev.locations.map(loc => loc.id === location.id ? { ...loc, screens: loc.screens.filter(s => s.id !== selectedScreen.id) } : loc) })); setSelectedScreenId(null); }} className="w-full py-2 bg-red-900/50 hover:bg-red-900 text-red-200 rounded flex items-center justify-center gap-2 text-sm transition-colors"><Trash2 size={16} /> Delete Screen</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <h3 className="text-xs font-semibold text-neutral-500 uppercase mb-3">Slide Stack</h3>
+              <div className="space-y-2">
+                {selectedScreen.slides.map((sId, idx) => {
+                  const slideObj = allSlides.find(s => s.id === sId);
+                  if (!slideObj) return null;
+                  return (
+                    <div key={idx} className="bg-neutral-800 p-2 rounded flex items-center justify-between group">
+                      <div className="flex items-center gap-2"><span className="text-xs text-neutral-500 w-4">{idx + 1}</span><span className="text-sm">{slideObj.name}</span></div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button onClick={() => onEditSlide(sId)} className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white"><Settings size={14} /></button>
+                         <button onClick={() => updateData(prev => { const newLocs = [...prev.locations]; const loc = newLocs.find(l => l.id === location.id); if (loc) { const s = loc.screens.find(sc => sc.id === selectedScreen.id); if (s) s.slides = s.slides.filter((_, i) => i !== idx); } return { ...prev, locations: newLocs }; })} className="p-1 hover:bg-red-900/50 rounded text-neutral-400 hover:text-red-500"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SLIDE EDITOR COMPONENT
+ */
+function SlideEditor({ slideId, allSlides, updateData }) {
+  const slide = allSlides.find(s => s.id === slideId);
+  const [selectedElId, setSelectedElId] = useState(null);
+  const [panelsMinimized, setPanelsMinimized] = useState(false);
+  const canvasRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  if (!slide) return <div>Slide not found</div>;
+
+  const selectedElement = slide.elements.find(e => e.id === selectedElId);
+  const selectedTileDef = selectedElement ? TILE_TYPES.find(t => t.type === selectedElement.type) : null;
+
+  const handleAddElement = (type) => {
+    const tileDef = TILE_TYPES.find(t => t.type === type);
+    const newEl = {
+      id: generateId(), type, x: 100, y: 100, width: 250, height: 150, zIndex: slide.elements.length + 1, opacity: 1, ...tileDef.defaultProps
+    };
+    if (type === 'text' || type === 'price') newEl.height = 60;
+    updateData(prev => ({ ...prev, slides: prev.slides.map(s => s.id === slideId ? { ...s, elements: [...s.elements, newEl] } : s) }));
+    setSelectedElId(newEl.id);
+  };
+
+  const updateSelectedElement = (updates) => {
+    if (!selectedElId) return;
+    updateData(prev => ({ ...prev, slides: prev.slides.map(s => s.id === slideId ? { ...s, elements: s.elements.map(el => el.id === selectedElId ? { ...el, ...updates } : el) } : s) }));
+  };
+
+  const handleMouseDown = (e, elId) => {
+    e.stopPropagation();
+    setSelectedElId(elId);
+    setDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!dragging || !selectedElId) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    updateSelectedElement({ x: e.clientX - canvasRect.left - dragOffset.x, y: e.clientY - canvasRect.top - dragOffset.y });
+  };
+
+  const renderPropertyField = (prop) => {
+    const value = selectedElement[prop.key];
+    const handleChange = (e) => {
+      let val = e.target.type === 'checkbox' ? e.target.checked : (e.target.type === 'number' || e.target.type === 'range' ? Number(e.target.value) : e.target.value);
+      updateSelectedElement({ [prop.key]: val });
+    };
+    const cls = "w-full bg-neutral-900 border border-neutral-700 rounded p-1 text-sm text-white focus:border-orange-500 outline-none";
+    
+    if (prop.type === 'select') return <div key={prop.key}><label className="text-xs text-neutral-500 uppercase">{prop.label}</label><select value={value} onChange={handleChange} className={cls}>{prop.options.map(o => <option key={o} value={o}>{o}</option>)}</select></div>;
+    if (prop.type === 'textarea') return <div key={prop.key}><label className="text-xs text-neutral-500 uppercase">{prop.label}</label><textarea value={value} onChange={handleChange} className={cls} rows={3} /></div>;
+    if (prop.type === 'color') return <div key={prop.key} className="flex items-center justify-between"><label className="text-xs text-neutral-500 uppercase">{prop.label}</label><input type="color" value={value || '#000000'} onChange={handleChange} className="w-8 h-8 bg-transparent cursor-pointer" /></div>;
+    if (prop.type === 'range') return <div key={prop.key}><label className="text-xs text-neutral-500 uppercase">{prop.label}</label><input type="range" min={prop.min} max={prop.max} value={value} onChange={handleChange} className="w-full" /></div>;
+    if (prop.type === 'checkbox') return <div key={prop.key} className="flex items-center gap-2"><input type="checkbox" checked={!!value} onChange={handleChange} /><label className="text-sm">{prop.label}</label></div>;
+    return <div key={prop.key}><label className="text-xs text-neutral-500 uppercase">{prop.label}</label><input type={prop.type} value={value} onChange={handleChange} className={cls} /></div>;
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] bg-neutral-900 overflow-hidden relative" onMouseUp={() => setDragging(false)} onMouseMove={handleMouseMove}>
+      <div className={`absolute left-0 top-0 bottom-0 bg-neutral-800 border-r border-neutral-700 z-20 transition-all duration-300 ${panelsMinimized ? '-translate-x-full' : 'w-16 flex flex-col items-center py-4 gap-2 overflow-y-auto no-scrollbar'}`}>
+        {TILE_TYPES.map((t) => (
+          <button key={t.type} onClick={() => handleAddElement(t.type)} className="w-10 h-10 shrink-0 rounded hover:bg-neutral-700 flex flex-col items-center justify-center text-neutral-400 hover:text-white transition-colors relative group" title={t.label}>
+            <t.icon size={20} /><span className="text-[8px] mt-0.5 text-center leading-none">{t.label.split(' ')[0]}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className={`flex-1 flex items-center justify-center bg-neutral-900 relative transition-all duration-300 ${panelsMinimized ? 'ml-0 mr-0' : 'ml-16 mr-80'}`} onClick={() => setSelectedElId(null)}>
+        <button onClick={() => setPanelsMinimized(!panelsMinimized)} className="absolute top-4 right-4 z-30 p-2 bg-neutral-800 rounded-full text-neutral-400 hover:text-white shadow-lg">{panelsMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}</button>
+        <div ref={canvasRef} className="relative shadow-2xl overflow-hidden" style={{ width: '800px', height: '450px', backgroundColor: slide.background, backgroundSize: '20px 20px', backgroundImage: 'radial-gradient(#333 1px, transparent 1px)' }}>
+          {slide.elements.sort((a,b) => a.zIndex - b.zIndex).map(el => <RndElement key={el.id} data={el} isSelected={selectedElId === el.id} onMouseDown={(e) => handleMouseDown(e, el.id)} />)}
+        </div>
+      </div>
+
+      <div className={`absolute right-0 top-0 bottom-0 bg-neutral-800 border-l border-neutral-700 z-20 transition-all duration-300 ${panelsMinimized ? 'translate-x-full' : 'w-80 translate-x-0'}`}>
+        <div className="p-4 border-b border-neutral-700"><h3 className="font-semibold text-neutral-200">Properties</h3>{selectedElement && <p className="text-xs text-orange-400 mt-1">{selectedElement.type}</p>}</div>
+        <div className="p-4 space-y-4 overflow-y-auto h-full pb-20">
+          {selectedElement ? (
+            <>
+              <h4 className="text-sm font-medium text-neutral-400 border-b border-neutral-700 pb-1">Layout</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {['x','y','width','height'].map(k => <div key={k}><label className="text-xs uppercase text-neutral-500">{k}</label><input type="number" value={Math.round(selectedElement[k])} onChange={(e) => updateSelectedElement({ [k]: Number(e.target.value) })} className="w-full bg-neutral-900 border border-neutral-700 rounded p-1 text-sm text-white" /></div>)}
+              </div>
+              <h4 className="text-sm font-medium text-neutral-400 border-b border-neutral-700 pb-1 mt-2">Specifics</h4>
+              {selectedTileDef?.properties?.map(prop => renderPropertyField(prop))}
+              <div className="pt-4 border-t border-neutral-700 flex justify-between">
+                 <div className="flex gap-2">
+                    <button onClick={() => updateSelectedElement({ zIndex: selectedElement.zIndex + 1 })} className="p-1 bg-neutral-700 rounded"><Layers size={14} /></button>
+                    <button onClick={() => updateSelectedElement({ zIndex: Math.max(0, selectedElement.zIndex - 1) })} className="p-1 bg-neutral-700 rounded rotate-180"><Layers size={14} /></button>
+                 </div>
+                 <button onClick={() => updateData(prev => ({ ...prev, slides: prev.slides.map(s => s.id === slideId ? { ...s, elements: s.elements.filter(el => el.id !== selectedElId) } : s) }))} className="text-red-400 hover:text-red-300 text-sm flex items-center gap-1"><Trash2 size={14} /> Delete</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h4 className="text-sm font-medium text-neutral-400 pb-1">Slide Settings</h4>
+              <div><label className="text-xs uppercase text-neutral-500">Name</label><input type="text" value={slide.name} onChange={(e) => updateData(prev => ({ ...prev, slides: prev.slides.map(s => s.id === slideId ? { ...s, name: e.target.value } : s) }))} className="w-full bg-neutral-900 border border-neutral-700 rounded p-2 text-sm text-white" /></div>
+              <div className="mt-2"><label className="text-xs uppercase text-neutral-500">Background</label><div className="flex gap-2"><input type="color" value={slide.background} onChange={(e) => updateData(prev => ({ ...prev, slides: prev.slides.map(s => s.id === slideId ? { ...s, background: e.target.value } : s) }))} className="w-8 h-8 bg-transparent cursor-pointer" /></div></div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * COMPONENT: Single Renderable Element
+ * Includes Smart Rendering logic for all 46 tile types
+ */
+function RndElement({ data, isSelected, onMouseDown }) {
+  const [mediaError, setMediaError] = useState(false);
+  // Real-time clock state
+  const [timeStr, setTimeStr] = useState('');
+
+  useEffect(() => {
+    setMediaError(false);
+  }, [data.videoUrl, data.imageUrl]);
+
+  // Clock Logic
+  useEffect(() => {
+    if (data.type !== 'clock') return;
+    const updateTime = () => {
+      const now = new Date();
+      setTimeStr(now.toLocaleTimeString('en-US', { 
+        hour12: data.format === '12h', 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        second: data.showSeconds ? '2-digit' : undefined 
+      }));
+    };
+    updateTime(); // Initial
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, [data.type, data.format, data.showSeconds]);
+
+  const handleRndClick = (e) => e.stopPropagation();
+
+  // --- RENDER HELPERS ---
+  
+  // 1. Generic Card Renderer (for Menu/Deal/Chef/Staff/Event)
+  const renderInfoCard = () => {
+    // Determine layout based on aspect ratio of the tile
+    const isWide = data.width > data.height * 1.5;
+    const hasImage = data.imageUrl && data.imageUrl.length > 5;
+    
+    return (
+      <div className={`w-full h-full p-3 flex ${isWide ? 'flex-row' : 'flex-col'} gap-2 overflow-hidden`} style={{ backgroundColor: data.backgroundColor || 'transparent' }}>
+        {hasImage && (
+          <div className={`${isWide ? 'w-1/3 h-full' : 'w-full h-1/2'} shrink-0 overflow-hidden rounded`}>
+             <img src={data.imageUrl} className="w-full h-full object-cover" alt="Card" onError={(e) => e.target.style.display='none'}/>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col justify-center min-w-0">
+          {data.type === 'specialBanner' && <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: data.highlightColor }}>SPECIAL</div>}
+          <h3 className="font-bold leading-tight truncate" style={{ color: data.color || 'white', fontSize: isWide ? '1.2em' : '1em' }}>{data.title || 'Title'}</h3>
+          {data.price && <div className="font-bold text-xl my-1" style={{ color: data.highlightColor || 'yellow' }}>${data.price}</div>}
+          <p className="text-xs opacity-80 line-clamp-3 leading-snug" style={{ color: data.color || 'white' }}>{data.description || 'Description text goes here...'}</p>
+        </div>
+      </div>
+    );
+  };
+
+  // 2. Widget & List Renderer (Stars, Wifi, Weather, Clock, Hours, Nutri, Waitlist, CTA, Allergy)
+  const renderWidget = () => {
+    const color = data.color || '#ffffff';
+    const bgColor = data.backgroundColor || 'transparent';
+
+    switch (data.type) {
+      case 'ratingStar':
+        const stars = Math.round(data.rating || 0);
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center" style={{ color: color }}>
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} size={24} fill={i < stars ? data.color : 'none'} color={data.color} />
+              ))}
+            </div>
+            {data.showText && <span className="text-xs mt-1 font-bold">{data.rating} / {data.maxRating}</span>}
+          </div>
+        );
+      case 'wifiDetails':
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center text-center p-2" style={{ backgroundColor: bgColor, color: color }}>
+            <Wifi size={32} className="mb-2" />
+            <div className="font-bold text-sm">Free WiFi</div>
+            <div className="text-xs opacity-75">Network: {data.ssid}</div>
+            <div className="text-xs opacity-75">Pass: {data.password}</div>
+          </div>
+        );
+      case 'weather':
+        return (
+          <div className="w-full h-full flex items-center justify-center gap-3" style={{ color: color }}>
+            <Sun size={32} />
+            <div>
+              <div className="text-2xl font-bold">72°{data.units}</div>
+              <div className="text-xs uppercase opacity-75">{data.city || 'Location'}</div>
+            </div>
+          </div>
+        );
+      case 'clock':
+        return (
+          <div className="w-full h-full flex items-center justify-center" style={{ color: color, fontWeight: data.fontWeight }}>
+            <span className="text-3xl font-mono">{timeStr || '--:--'}</span>
+          </div>
+        );
+      case 'QR':
+        // Note: QR rendering is complex and usually requires a library. Using Lucide icon as placeholder visualization.
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center p-2" style={{ backgroundColor: data.backgroundColor }}>
+            <QrCode size={Math.min(data.height * 0.6, 120)} color={data.foregroundColor} />
+            {data.label && <span className="text-xs font-bold mt-1 text-black">{data.label}</span>}
+          </div>
+        );
+      case 'socialFeed':
+        return (
+           <div className="w-full h-full flex items-center justify-center p-4 bg-white text-black">
+             <div className="flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full flex items-center justify-center text-white" style={{backgroundColor: data.color}}><Share2 size={20}/></div>
+               <div>
+                 <div className="font-bold text-sm">Follow Us</div>
+                 <div className="text-xs text-neutral-500">{data.handle}</div>
+               </div>
+             </div>
+           </div>
+        );
+      case 'openingHours':
+        return (
+          <div className="w-full h-full p-4 flex flex-col justify-center" style={{ backgroundColor: bgColor, color: color }}>
+            <h3 className="font-bold border-b border-white/20 pb-1 mb-2">{data.title}</h3>
+            <div className="text-sm flex justify-between mb-1"><span>Mon-Fri</span><span>{data.line1?.split(': ')[1] || '9am - 5pm'}</span></div>
+            <div className="text-sm flex justify-between"><span>Sat-Sun</span><span>{data.line2?.split(': ')[1] || '10am - 6pm'}</span></div>
+          </div>
+        );
+      case 'nutriFacts':
+        return (
+          <div className="w-full h-full border-2 border-black/20 bg-white text-black p-2 font-mono text-xs">
+            <div className="font-black text-lg border-b-4 border-black mb-1">Nutrition Facts</div>
+            <div className="flex justify-between border-b border-black"><span>Calories</span><span>{data.calories}</span></div>
+            <div className="flex justify-between pt-1"><span>Protein</span><span>{data.protein}</span></div>
+          </div>
+        );
+      case 'waitlist':
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-800 border-2" style={{ borderColor: color }}>
+            <span className="text-4xl font-bold text-white">{data.count}</span>
+            <span className="text-xs uppercase tracking-widest mt-1" style={{ color: color }}>{data.label}</span>
+          </div>
+        );
+      case 'allergyIcon':
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ color: color, backgroundColor: bgColor }}>
+                <AlertTriangle size={32} />
+                <span className="text-sm font-bold uppercase">{data.iconType}</span>
+            </div>
+        );
+      case 'callToAction':
+        return (
+            <button className="w-full h-full flex items-center justify-center font-bold text-lg hover:opacity-90 transition-opacity" 
+                    style={{ backgroundColor: data.backgroundColor, color: data.color, borderRadius: `${data.borderRadius}px` }}>
+                {data.label}
+            </button>
+        );
+      default: return null;
+    }
+  };
+
+  // 3. Generic Placeholder Renderer for the remaining 19 unimplemented types
+  const renderPlaceholderWidget = () => {
+    // Get the definition to find the primary property key and icon
+    const tileDef = TILE_TYPES.find(t => t.type === data.type);
+    const IconComponent = tileDef ? tileDef.icon : Box;
+    
+    // Attempt to find the most relevant text property for display
+    // Prioritize properties that are likely to hold textual data for a placeholder preview
+    const primaryPropKey = tileDef?.properties?.[0]?.key;
+    let displayText = data[primaryPropKey] || data.content || data.title || data.label || data.name || data.code || data.symbol || data.rate || data.status || data.msg || data.text || data.question || data.time || 'Demo Data';
+    
+    // Set colors
+    const color = data.color || '#ffffff';
+    const bgColor = data.backgroundColor || '#1f2937';
+
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center rounded-lg border border-dashed" style={{ backgroundColor: bgColor, color: color, borderColor: color, opacity: data.opacity || 1 }}>
+            <IconComponent size={32} className="mb-1" />
+            <span className="text-xs font-semibold uppercase tracking-wider opacity-75">{tileDef.label}</span>
+            <span className="text-sm font-bold mt-1 max-w-full truncate px-1">{displayText}</span>
+        </div>
+    );
+  };
+
+  // 4. Main Renderer Logic
+  const renderContent = () => {
+    // 1. Handle Core Media & Text (DO NOT CHANGE per user request)
+    if (data.type === 'text') return <div className="w-full h-full whitespace-pre-wrap flex items-center" style={{ color: data.color, fontSize: `${data.fontSize}px`, fontFamily: data.fontFamily, textAlign: data.textAlign, fontWeight: data.fontWeight }}>{data.content}</div>;
+    if (data.type === 'price') return <div className="w-full h-full whitespace-nowrap flex items-center justify-end" style={{ color: data.color, fontSize: `${data.fontSize}px` }}>{data.priceFormat === 'prefix' ? `${data.currencySymbol}${data.content}` : `${data.content}${data.currencySymbol}`}</div>;
+    if (data.type === 'shape') return <div className="w-full h-full" style={{ backgroundColor: data.backgroundColor, borderRadius: data.shapeType === 'circle' ? '50%' : (data.shapeType === 'pill' ? '999px' : `${data.borderRadius}px`), border: data.strokeColor ? `2px solid ${data.strokeColor}` : 'none', opacity: data.opacity }} />;
+    
+    if (data.type === 'image') {
+      if (mediaError) return <div className="w-full h-full bg-red-900/50 flex items-center justify-center text-red-200 text-xs border border-dashed border-red-400">Image Error</div>;
+      return <div className="w-full h-full overflow-hidden" style={{ borderRadius: `${data.borderRadius}px` }}><img src={data.imageUrl} className="w-full h-full" style={{ objectFit: data.fitMode, objectPosition: `${data.cropX}% ${data.cropY}%` }} onError={() => setMediaError(true)} /></div>;
+    }
+    
+    if (data.type === 'video') {
+      if (mediaError) return <div className="w-full h-full bg-red-900/50 flex items-center justify-center text-red-200 text-xs">Video Error</div>;
+      return <video src={data.videoUrl} autoPlay={data.autoplay} loop={data.loop} muted={data.mute} className="w-full h-full" style={{ objectFit: data.fitMode, objectPosition: `${data.cropX}% ${data.cropY}%` }} onError={() => setMediaError(true)} />;
+    }
+
+    if (data.type === 'iframeEmbed') {
+      return <iframe src={data.iframeUrl} className="w-full h-full border-none" scrolling={data.scrolling} title="Embed" />;
+    }
+
+    if (data.type === 'customHTML') {
+      return <div className="w-full h-full overflow-hidden p-2" dangerouslySetInnerHTML={{ __html: data.html }} />;
+    }
+
+    // 2. Route to Smart Renderers
+    const infoCardTypes = ['menuItem','specialBanner','dailyDeal','comboOffer','drinkSpecial','dessertCard','soupOfTheDay','featuredChef','staffPhoto','eventPromo'];
+    const widgetTypes = ['ratingStar','wifiDetails','weather','clock','QR','socialFeed','openingHours','nutriFacts','waitlist','allergyIcon','callToAction'];
+
+    if (infoCardTypes.includes(data.type)) return renderInfoCard();
+    if (widgetTypes.includes(data.type)) return renderWidget();
+
+    // 3. Fallback for all other placeholder types (19 types)
+    return renderPlaceholderWidget();
+  };
+
+  return (
+    <div style={{ position: 'absolute', left: `${data.x}px`, top: `${data.y}px`, width: `${data.width}px`, height: `${data.height}px`, zIndex: data.zIndex, cursor: onMouseDown ? 'move' : 'default', opacity: data.opacity || 1 }} onMouseDown={onMouseDown} onClick={handleRndClick} className={`${isSelected ? 'ring-2 ring-orange-500' : ''} hover:ring-1 hover:ring-white/30 transition-shadow select-none group`}>
+       {renderContent()}
+       {isSelected && <><div className="absolute -top-1 -left-1 w-2 h-2 bg-orange-500 rounded-full" /><div className="absolute -bottom-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" /></>}
+    </div>
+  );
+}
+
+function DisplayPlayer({ screen, allSlides, onExit }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slidesToPlay = screen.slides.map(id => allSlides.find(s => s.id === id)).filter(Boolean);
+  const currentSlide = slidesToPlay[currentIndex];
+
+  useEffect(() => {
+    if (slidesToPlay.length <= 1) return;
+    const interval = setInterval(() => setCurrentIndex((prev) => (prev + 1) % slidesToPlay.length), screen.rotation || DEFAULT_SLIDE_DURATION);
+    return () => clearInterval(interval);
+  }, [screen.rotation, slidesToPlay.length]);
+
+  if (!currentSlide) return <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-white"><h1 className="text-4xl font-bold mb-4">No Signal</h1><button onClick={onExit} className="mt-8 px-4 py-2 bg-neutral-800 rounded">Exit</button></div>;
+
+  return (
+    <div className="fixed inset-0 bg-black overflow-hidden cursor-none">
+       <div className="w-full h-full relative" style={{ backgroundColor: currentSlide.background }}>
+          {currentSlide.elements.sort((a,b) => a.zIndex - b.zIndex).map(el => <RndElement key={el.id} data={el} isSelected={false} onMouseDown={null} />)}
+       </div>
+       <div onClick={onExit} className="fixed bottom-0 right-0 w-16 h-16 opacity-0 hover:opacity-10 z-50 cursor-pointer flex items-center justify-center bg-white transition-opacity"><span className="text-black font-bold text-xs">EXIT</span></div>
+    </div>
+  );
+}

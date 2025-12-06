@@ -1,0 +1,588 @@
+Here’s a structured, production-level description of the **AccelRestaurants™ Digital Menu & Growth Platform**, grounded in your current MVP app, the tile types list, and your restaurant-services positioning.
+
+---
+
+## 1. Platform Identity & Vision
+
+**Name (working):** AccelRestaurants™ – Digital Menu & Growth Platform
+**Owner:** Accel Analysis, LLC
+**Branding:** Visual style, typography, and tone aligned with the main Accel Analysis site (dark-neutral backgrounds, orange highlights, clean typography, “Clarity. Strategy. Execution.”). ([Accel Analysis Business Solutions][1])
+
+**High-level promise:**
+
+> “Turn local data into full tables, stronger tickets, and smarter growth” for restaurants, cafés, and food concepts, unifying **digital menu boards**, **hyper-targeted campaigns**, and **KPI dashboards** into a single platform. ([Accel Analysis][2])
+
+The platform is not just a screen-designer. It is:
+
+1. A **multi-tenant digital signage system** for restaurant menu & promo screens.
+2. A **menu & offer strategy tool** that reuses the same items across print, screens, and campaigns. ([Accel Analysis][2])
+3. A **campaign & KPI layer** that ties digital boards to hyper-targeted direct mail, radius-based outreach, and restaurant performance dashboards. ([Accel Analysis][2])
+
+---
+
+## 2. Current MVP Baseline (What Already Exists)
+
+Based on the attached React app: 
+
+* **Frontend only**, single-page React app.
+* Three main views (stateful in `RestaurantSignageApp`):
+
+  * **Dashboard**:
+
+    * Manages **Locations**.
+    * Each location has multiple **Screens** positioned on a layout canvas (drag to x,y).
+    * Each Screen references a set of **Slides** (by ID) and a rotation duration.
+    * “Slide Library” on the left, drag slides onto the location layout to create screens.
+  * **Slide Editor**:
+
+    * Canvas (800×450) representing one slide.
+    * Left: palette of `TILE_TYPES` icons.
+    * Center: drag-and-drop tile elements, each with x,y,width,height,zIndex.
+    * Right: layout & type-specific property panel for the selected tile.
+  * **Display**:
+
+    * Fullscreen “player” for a selected screen.
+    * Cycles through that screen’s slides with a global rotation interval.
+* **Persistence**:
+
+  * Local only (React state), with **Import/Export JSON** buttons.
+
+This will become the **core “Screens & Slides” module** of the production platform.
+
+---
+
+## 3. Canonical Tile System
+
+### 3.1 Base Tile Types (Global “Type Registry”)
+
+The platform’s **canonical tile types** come from `types list.txt` (the “type registry”). 
+
+Each row is a base **TileType** with:
+
+* `key` (e.g., `text`, `image`, `video`, `qrcode`).
+* Human label & description.
+* Base property schema (content, color, etc.).
+* Notes about behavior (e.g., “uses wttr.in,” “uses <model-viewer>,” etc.).
+
+Examples (abbreviated):
+
+* `text` – multi-line static text.
+* `image` / `gif` / `video` / `youtube` / `vimeo` – media tiles for media URLs.
+* `shape` / `gradient` – backgrounds/containers.
+* `qrcode` – QR generator tile.
+* `scene` – background slideshow.
+* `weather`, `weather_detailed`, `weather_icon`, `emojiWeather` – different weather representations.
+* `bar`, `pie`, `table` – simple data visualizations.
+* `sheetcell` – value pulled from Google Sheets cell.
+* `rss`, `marquee`, `quote` – text feeds & motion.
+* `status`, `progress` – indicator tiles.
+* `html`, `iframe` – controlled HTML and embed tiles.
+* `openai` – AI-generated text tile (requires API key).
+* Others like `3dmodel`, `lottie`, `map`, `menu`, `timer`, etc.
+
+**Production rule:**
+
+* The **only “base” tile types** are those in this registry.
+* Restaurant-specific cards (e.g., “Menu Item Card”, “Daily Deal”) are **Tile Templates** (see below), not new base types.
+
+The current MVP’s expanded `TILE_TYPES` list (menuItem, specialBanner, wifiDetails, placeholder types, etc.) will be migrated and collapsed into:
+
+* **Base types**: mapped to registry (`text`, `image`, `video`, `shape`, `clock`, `weather`, `qrcode`, `html`, `iframe`, etc.).
+* **Template tiles**: saved presets built on those base types (e.g., “Dessert Highlight”, “WiFi Details”, “Daily Deal Banner”). 
+
+### 3.2 Tile Templates (Restaurant & User Presets)
+
+**Goal:** Allow users to save styling + behavior of any base tile as a **Template** they can reuse.
+
+**Entity: `TileTemplate`**
+
+* `id`
+* `organizationId` (restaurant account)
+* `createdByUserId`
+* `tileTypeKey` (e.g., `text`, `image`, `menu`)
+* `name` (e.g., “Burger Price Label – White Bold 36px”)
+* `tags` (e.g., `["price", "lunch", "hero-item"]`)
+* `defaultProps` (JSON of tile properties; exactly matches base tile prop schema)
+* `thumbnailUrl` (optional screenshot generated server-side for palette)
+
+**Usage:**
+
+* Palette in the Slide Editor gains **two tabs**:
+
+  * **Base Tiles** (from type registry).
+  * **My Templates** (user-created, account-specific).
+* Dragging a template onto the canvas creates a **TileInstance** pre-populated with its `defaultProps`.
+
+**Create / Edit Flow:**
+
+1. User adds a base tile on a slide and customizes fonts, colors, border radius, content bindings, etc.
+2. User clicks **“Save as Template”**:
+
+   * Names template.
+   * Assigns tags (e.g., “Combo Offer”, “Happy Hour Banner”).
+3. Template appears in **My Templates** for this organization.
+4. Editing an existing template:
+
+   * User can change default props.
+   * Default behavior: **changes affect future placements only**.
+   * Optional advanced behavior (Phase 2): “Update linked instances” to propagate style changes to tiles that are explicitly linked.
+
+---
+
+## 4. Core Domain Model
+
+### 4.1 Multi-Tenant Accounts
+
+**Organization (Restaurant Group / Single Restaurant)**
+
+* `id`
+* `name`
+* `brandConfig` (logo, colors, fonts)
+* `plan` (Free, Standard, Growth, Enterprise)
+* `defaultTimezone`
+* Billing & subscription metadata.
+
+**Users & Roles**
+
+* `User`:
+
+  * `id`
+  * `email`
+  * `name`
+  * `role` within organization:
+
+    * **Owner** – manages billing, global settings, high-level campaigns.
+    * **Manager** – manages locations, menu data, screens, campaigns.
+    * **Staff** – can edit slides & templates for assigned locations.
+    * **Accel Admin** (internal) – support, troubleshooting, configuration.
+
+Auth can reuse your broader platform approach (Firebase/Supabase or custom JWT), with role-based access and per-organization scoping. ([Accel Analysis Business Solutions][3])
+
+### 4.2 Locations, Screens, and Players
+
+**Location**
+
+* `id`
+* `organizationId`
+* `name` (“Downtown Burger Bar”)
+* `address`, `lat/long`
+* `tradeAreaProfile` (summary from your mapping stack – radius rings, demographics, etc.) ([Accel Analysis][2])
+
+**Screen**
+
+Represents a logical screen (menu board, promo screen, etc.) in a location.
+
+* `id`
+* `locationId`
+* `name` (“Main Menu Board”, “Promo Vertical”)
+* `layoutPosition` (x,y on dashboard canvas; optional)
+* `aspectRatio` (`16:9`, `9:16`, `4:3`)
+* `orientation` (`landscape`, `portrait`)
+* `rotationMs` (default slide rotation)
+* `playlistId` (current playlist assigned)
+* `daypartSchedules` (optional list of schedule objects – lunch vs dinner content)
+
+**PlayerDevice**
+
+Represents a physical player instance (TV browser, Fire Stick, etc.).
+
+* `id`
+* `screenId`
+* `playerToken` (unguessable, used in public player URL)
+* `status` (`online`, `offline`, `stale`)
+* `lastHeartbeatAt`
+* `lastConfigHash` (for detecting stale content)
+
+**Public Player URLs**
+
+* URL pattern for each player:
+
+  * `https://screens.accelrestaurants.com/p/{playerToken}`
+* Options for query string overrides:
+
+  * `?brightness=0.9`
+  * `?debug=true` (for troubleshooting)
+
+These URLs are what you load in:
+
+* TV internal browsers.
+* Amazon Fire Stick browsers.
+* Dedicated kiosk browsers.
+
+---
+
+## 5. Slides, Playlists, and Scheduling
+
+### 5.1 Slides
+
+**Slide**
+
+* `id`
+* `organizationId`
+* `name` (“Burger Specials”, “Weekend Promo”)
+* `background` (color or `scene` tile reference)
+* `width`, `height` (logical canvas dimensions; map to aspect ratio)
+* `elements` (**TileInstances** array, as in MVP)
+
+**TileInstance**
+
+* `id`
+* `slideId`
+* `tileTypeKey` (from registry, e.g., `text`, `image`)
+* `tileTemplateId` (optional)
+* `x`, `y`, `width`, `height`, `zIndex`
+* `props` (JSON of properties; base + overrides)
+* `dataBindings` (optional mapping for dynamic data, e.g., `menuItemId`, `sheetcell`, `campaignMetricId`)
+* `opacity`, `rotation`, etc. (layout properties)
+
+The existing `elements` structure is retained but cleaned up and aligned with the canonical tile registry. 
+
+### 5.2 Playlists & Daypart Rules
+
+**Playlist**
+
+* `id`
+* `organizationId`
+* `name` (“Lunch Menu Loop”, “Happy Hour Loop”)
+* `items`: array of `{ slideId, durationMs, weight? }`
+
+**Screen → Playlist mapping:**
+
+* `Screen.playlistId` points to one default playlist.
+
+* **DaypartSchedule** (optional):
+
+  ```json
+  {
+    "screenId": "screen1",
+    "rules": [
+      {
+        "daysOfWeek": [1,2,3,4,5],
+        "startTime": "10:30",
+        "endTime": "15:00",
+        "playlistId": "playlist_lunch"
+      },
+      {
+        "daysOfWeek": [1,2,3,4,5],
+        "startTime": "17:00",
+        "endTime": "21:30",
+        "playlistId": "playlist_dinner"
+      }
+    ]
+  }
+  ```
+
+* Player resolves which playlist to use based on local time and day.
+
+---
+
+## 6. Remote Deployment & Player Behavior
+
+### 6.1 Player App Flow
+
+When a player loads `https://screens.accelrestaurants.com/p/{playerToken}`:
+
+1. **Bootstrap**
+
+   * Fetch `/api/player/{playerToken}`:
+
+     * Returns resolved `screenId`, `organizationId`, current playlist, slides, and tile templates/types.
+     * Returns a `configVersion` or `hash`.
+2. **Cache**
+
+   * Store config in `localStorage` or IndexedDB.
+   * Preload media (images, video) where possible.
+3. **Play Loop**
+
+   * Render slides in rotation using `config.rotationMs` and per-playlist durations.
+   * Use same rendering logic as `DisplayPlayer` in MVP but without editing handles. 
+4. **Heartbeat**
+
+   * Periodically `POST /api/player/{playerToken}/heartbeat` with `lastConfigHash`, uptime metrics.
+   * API can respond with `shouldRefreshConfig: true` if something changed.
+5. **Offline Behavior**
+
+   * If fetch fails, player uses last cached configuration.
+   * Show “No Signal / Offline” fallback only if there’s no cached config at all.
+
+### 6.2 Remote Update Guarantees
+
+* Any change to slides, templates, playlists, or schedules triggers:
+
+  * Increment of a `configVersion` for affected Screen(s).
+* Players use:
+
+  * **Polling**: check config every N minutes (configurable).
+  * Or **WebSocket** subscription for near-real-time updates (Phase 2).
+
+---
+
+## 7. Restaurant Menu & Offer Layer
+
+To tie into your menu strategy and ticket-size improvement work, there is a **Menu Data** layer, separate from slides. ([Accel Analysis][2])
+
+**MenuItem**
+
+* `id`
+* `organizationId`
+* `locationId` (optional; some items only at certain locations)
+* `name`
+* `description`
+* `basePrice`
+* `category` (e.g., “Burgers”, “Sides”, “Drinks”)
+* `tags` (`["signature", "kids", "spicy"]`)
+* `imageUrl`
+* `isActive`
+* `nutrition` (optional fields)
+
+**MenuSection**
+
+* `id`
+* `name` (“Burgers”, “BBQ Plates”)
+* `displayOrder`
+* `menuItemIds` (ordered)
+
+**Data Binding in Tiles**
+
+* A `text` tile’s `content` can bind to `menuItem.name`.
+* A `text`/`price` tile can bind to `menuItem.basePrice`.
+* An `image` tile can bind to `menuItem.imageUrl`.
+
+**Sheetcell + Menu**
+
+* For flexible pricing, `sheetcell` tiles can be tied to a CSV export or Google Sheet used by accounting or POS exports, allowing near-live price updates via sheet cell references. 
+
+---
+
+## 8. Campaigns, Direct Mail, & QR Tracking
+
+The platform must integrate tightly with your **hyper-targeted direct mail** and **radius-based campaign** services for restaurants. ([Accel Analysis][2])
+
+**Campaign**
+
+* `id`
+* `organizationId`
+* `name` (“New Neighbors – Q1 Lunch Boost”)
+* `objective` (e.g., “Increase weekday lunch traffic”, “Grow catering orders”)
+* `channelMix` (set of `["direct_mail", "digital_menu", "social", "email"]`)
+* `startDate`, `endDate`
+* `offerCode` / `promoCode`
+* `metrics` (impressions, redemptions, revenue, ROI)
+
+**CampaignSegments**
+
+* Represent hyper-targeted guest segments (e.g., high-income households in 3-mile radius). ([Accel Analysis][2])
+
+**Campaign ↔ Slides Integration**
+
+* Each slide and/or tile can be assigned a `campaignId`.
+* **QR tiles** on screens use the same `offerCode` and track into the same campaign dataset as postcards/menus. ([Accel Analysis][2])
+* Campaign dashboard shows:
+
+  * Mailers sent.
+  * Online orders via QR.
+  * In-store redemptions via promo code.
+  * Estimated incremental revenue.
+
+**Direct Mail Ops Integration**
+
+* The platform should expose endpoints or exports for your existing Accel mailer pipeline:
+
+  * `/api/campaign/{id}/mail-ready-list` (EDDM, carrier routes, targeted lists).
+  * `/api/campaign/{id}/creative-variants` (ties to printed menu/postcard design templates).
+
+---
+
+## 9. Trade Area & Delivery Radius Integration
+
+To reflect your “trade area & delivery radius strategy” offering, add a **Trade Area** module linked to each Location. ([Accel Analysis][2])
+
+**Features:**
+
+* Map view with:
+
+  * Radius rings (1, 3, 5 miles).
+  * Custom polygons if needed.
+  * Overlaid 3rd-party delivery zones (DoorDash/UberEats etc. via manual input or imported geojson).
+* Saved **Audience Segments**:
+
+  * `Segment` objects for households, businesses, offices, schools, churches, etc.
+* Integration with Campaigns:
+
+  * Campaign’s target segment definitions stored here.
+  * Direct mail list building uses these segments.
+
+**Digital Menu Tie-Ins:**
+
+* For campaigns targeting a certain radius (e.g., lunch within 3 miles), the system can:
+
+  * Suggest **screen placements** (e.g., “This slide is part of the 3-mile lunch campaign”).
+  * Tag slides by campaign & trade area for ROI tracking.
+
+---
+
+## 10. KPI Dashboards for Restaurants
+
+This satisfies the “Restaurant KPI Dashboards” promise on your restaurant page. ([Accel Analysis][2])
+
+**Data Sources:**
+
+* POS imports (CSV, API): daily sales, items sold, revenue by category.
+* Online ordering platforms (API or CSV).
+* Campaign results (internal).
+* Player metrics (screen uptime, slide impressions).
+
+**Metrics & Views:**
+
+1. **Sales by Daypart**
+
+   * Breakfast, lunch, dinner, late night.
+   * Over time; impact of campaigns.
+
+2. **Average Ticket & Mix**
+
+   * Average ticket by daypart.
+   * Category mix (e.g., % from Combos, Drinks, Desserts).
+
+3. **Promo Performance**
+
+   * Campaign-specific redemption.
+   * QR scans vs redemptions vs revenue.
+
+4. **Screen Health & Content Coverage**
+
+   * Which screens are online/offline.
+   * Which screens are running which campaigns.
+   * Last update time per player.
+
+5. **Trade Area Performance (optional advanced)**
+
+   * Compare KPIs before/after campaigns targeting specific segments/trade areas.
+
+Dashboards should be simple, visual, and accessible to busy operators, consistent with your messaging about “simple, structured, restaurant-ready” processes. ([Accel Analysis][2])
+
+---
+
+## 11. Application UX & Layout (Aligned With Existing MVP)
+
+Use the current app layout as the foundation for the design system. 
+
+### 11.1 Global Shell
+
+* **Top bar:**
+
+  * AccelRestaurants logo + “Clarity. Strategy. Execution.” mini-tagline.
+  * Organization selector (if user has multiple restaurant groups).
+  * Location selector.
+  * Nav tabs: `Screens`, `Menu Data`, `Campaigns`, `Trade Area`, `KPI`, `Settings`.
+* Global dark theme, orange accent, matching `accelanalysis.com` look. ([Accel Analysis Business Solutions][1])
+
+### 11.2 Screens Module (extended MVP Dashboard)
+
+* Left sidebar:
+
+  * Location management (existing).
+  * Screen list.
+  * Slide library (existing).
+* Center:
+
+  * Location “screen map” canvas (existing) showing screens with small monitor icons.
+* Right panel:
+
+  * Screen details:
+
+    * Name, rotation, aspect ratio, orientation.
+    * Playlist selection.
+    * Daypart schedules.
+    * Player registration & URL (copyable link / QR code for setting up TV).
+
+### 11.3 Slide Editor (enhanced)
+
+* Left: **Tile palette**
+
+  * Tabs: `Base Tiles`, `My Templates`, `Accel Templates` (prebuilt best-practice tiles from Accel).
+* Center: Canvas (already implemented).
+* Right: Properties panel (already implemented, but align fields with registry & template model).
+
+---
+
+## 12. Backend Architecture & Data Storage
+
+### 12.1 Recommended Stack (example, can be swapped)
+
+* **Frontend:** React/Next.js (reuse core components from MVP).
+* **Backend API:** Node.js with TypeScript (Express/NestJS), or similar.
+* **DB:** PostgreSQL (multi-tenant schema, row-level security).
+* **Realtime:** WebSockets or Server-Sent Events for config push.
+* **Object Storage:** S3-compatible bucket for screenshots, images.
+* **Auth:** JWT or OAuth-based (Firebase/Supabase/Cognito etc).
+
+### 12.2 Key APIs (REST/GraphQL-style)
+
+Examples:
+
+* `POST /api/organizations`
+* `GET /api/locations/:id`
+* `POST /api/locations/:id/screens`
+* `GET /api/screens/:id`
+* `GET /api/player/:playerToken`
+* `POST /api/player/:playerToken/heartbeat`
+* `POST /api/slides`
+* `PATCH /api/slides/:id`
+* `POST /api/tile-templates`
+* `GET /api/tile-templates?organizationId=...`
+* `POST /api/campaigns`
+* `GET /api/campaigns/:id/kpi`
+
+### 12.3 Security & Multi-Tenancy
+
+* Organization scoping for all entities.
+* Players only fetch screens belonging to their `screenId`.
+* Accel internal admins can impersonate or support multiple orgs.
+
+---
+
+## 13. Non-Functional Requirements
+
+* **Performance:**
+
+  * Players must render at 60fps where possible and preload media for smooth transitions.
+  * Admin UI responsive on laptops and large desktops.
+
+* **Reliability:**
+
+  * Players should keep working with cached config even during outages.
+  * Heartbeat allows proactive monitoring.
+
+* **Security:**
+
+  * Player URLs use opaque tokens; no authentication prompts on TVs.
+  * Admin endpoints protected by role-based auth.
+
+* **Extensibility:**
+
+  * Tile registry is centrally defined; new tile types can be added without breaking older players.
+  * Templates & campaigns are configuration—not code—making it easy for Accel to roll out “Accel Templates” across clients.
+
+---
+
+## 14. Cleanup & Migration Plan From MVP
+
+1. **Tile Registry Alignment**
+
+   * Replace hard-coded `TILE_TYPES` with a registry derived from `types list.txt`.
+   * Mark existing custom types (menuItem, specialBanner, wifiDetails, etc.) as **Accel Templates** using base tiles.
+
+2. **Data Model Move**
+
+   * Introduce a backend DB with the domain model above.
+   * Migrate MVP’s `INITIAL_DATA` and JSON exports into DB seed/import flow.
+
+3. **Player Extraction**
+
+   * Move `DisplayPlayer` to a dedicated route/app that reads from API instead of React state.
+   * Add player tokens, heartbeat, caching.
+
+4. **Module Expansion**
+
+   * Build Menu Data, Campaigns, Trade Area, and KPI modules to reflect the full restaurant page promise. ([Accel Analysis][2])
