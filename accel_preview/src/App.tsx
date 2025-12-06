@@ -338,6 +338,7 @@ export default function AccelRestaurants_Platform() {
               onEditSlide={setEditingSlideId}
               onCreateSlide={() => setSlides([...slides, { id: generateId(), orgId: INITIAL_ORG.id, name: 'New Slide', background: '#111827', width: 800, height: 450, elements: [] }])}
               onUpdateLocation={(updatedLoc) => setLocations(locations.map(l => l.id === updatedLoc.id ? updatedLoc : l))}
+              renderContext={renderContext}
             />
           )
         )}
@@ -584,8 +585,8 @@ function Player({ screen, slides, onClose, renderContext }: {
   );
 }
 
-function Dashboard({ location, slides, onEditSlide, onCreateSlide, onUpdateLocation }: { 
-  location: Location, slides: Slide[], onEditSlide: (id: string) => void, onCreateSlide: () => void, onUpdateLocation: (l: Location) => void 
+function Dashboard({ location, slides, onEditSlide, onCreateSlide, onUpdateLocation, renderContext }: { 
+  location: Location, slides: Slide[], onEditSlide: (id: string) => void, onCreateSlide: () => void, onUpdateLocation: (l: Location) => void, renderContext: RenderContext 
 }) {
   const [editingScreenId, setEditingScreenId] = useState<string | null>(null);
   const [deployingScreenId, setDeployingScreenId] = useState<string | null>(null);
@@ -1086,7 +1087,19 @@ function TileRenderer({ type, props, dimensions, binding, context }: {
       <div style={containerStyle} className="w-full h-full flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={finalProps.data.split(',').map((v, i) => ({ value: Number(v), fill: finalProps.colors.split(',')[i] }))} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" />
+            <Pie
+              data={finalProps.data.split(',').map((v: string, i: number) => ({
+                value: Number(v),
+                fill: finalProps.colors.split(',')[i],
+              }))}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={80}
+              fill="#8884d8"
+            />
           </PieChart>
         </ResponsiveContainer>
       </div>
