@@ -6,6 +6,7 @@ on:
       - feature/audio-experience-plane
     paths:
       - .github/patches/apply_audio_patch.py
+      - .github/workflows/apply-audio-experience-patch.yml
 
 permissions:
   contents: write
@@ -21,6 +22,30 @@ jobs:
 
       - name: Apply targeted App.tsx transformations
         run: python .github/patches/apply_audio_patch.py
+
+      - name: Clear pre-existing strict TypeScript warnings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('accel_preview/src/App.tsx')
+          text = p.read_text()
+          replacements = [
+              (
+                  "function CampaignsModule({ campaigns, onUpdateCampaigns, onSave }:",
+                  "function CampaignsModule({ campaigns, onSave }:",
+              ),
+              (
+                  "pieData.map((entry, index) => (",
+                  "pieData.map((_, index) => (",
+              ),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one strict-cleanup match for {old!r}, found {count}')
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
 
       - name: Install dependencies
         working-directory: accel_preview
