@@ -9,6 +9,40 @@ export interface Organization {
   plan: 'Free' | 'Growth' | 'Enterprise';
 }
 
+export interface MediaSchedule {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  days: number[];
+}
+
+export type AudioCoordinationMode = 'mix' | 'priority' | 'exclusive';
+
+export interface GlobalMediaTrack {
+  id: string;
+  title: string;
+  url: string;
+  kind: 'audio' | 'video';
+  volume: number;
+  startTime: number;
+  priority: number;
+  schedule?: MediaSchedule;
+}
+
+export interface ScreenAudioConfig {
+  enabled: boolean;
+  masterVolume: number;
+  backgroundMusic: string;
+  playlist: GlobalMediaTrack[];
+  schedule: MediaSchedule;
+  allowVideoAudio: boolean;
+  fadeBetweenTracksMs: number;
+  quietHours: MediaSchedule;
+  coordinationMode: AudioCoordinationMode;
+  duckingEnabled: boolean;
+  duckLevel: number;
+}
+
 export interface Location {
   id: string;
   orgId: string;
@@ -25,6 +59,7 @@ export interface Screen {
   transition?: 'fade' | 'slide' | 'none';
   algorithm?: 'loop' | 'random' | 'custom';
   customSequence?: string[];
+  audioConfig?: ScreenAudioConfig;
 }
 
 export interface Slide {
