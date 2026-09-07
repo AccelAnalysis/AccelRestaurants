@@ -27,6 +27,19 @@ create table public.screens (
   algorithm text check (algorithm in ('loop', 'random', 'custom')) default 'loop',
   custom_sequence jsonb default '[]'::jsonb, -- Array of slide IDs
   slides jsonb default '[]'::jsonb, -- Array of slide IDs in order
+  audio_config jsonb default '{
+    "enabled": true,
+    "masterVolume": 0.7,
+    "backgroundMusic": "",
+    "playlist": [],
+    "schedule": {"enabled": false, "startTime": "00:00", "endTime": "23:59", "days": [0,1,2,3,4,5,6]},
+    "allowVideoAudio": true,
+    "fadeBetweenTracksMs": 1200,
+    "quietHours": {"enabled": false, "startTime": "22:00", "endTime": "07:00", "days": [0,1,2,3,4,5,6]},
+    "coordinationMode": "priority",
+    "duckingEnabled": true,
+    "duckLevel": 0.25
+  }'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
