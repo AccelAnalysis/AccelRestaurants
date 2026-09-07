@@ -19,6 +19,53 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Finalize playback status state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('accel_preview/src/lib/audio.tsx')
+          text = p.read_text()
+
+          replacements = [
+              (
+                  "  const [blocked, setBlocked] = React.useState(false);\n",
+                  "  const [blocked, setBlocked] = React.useState(false);\n  const [playing, setPlaying] = React.useState(false);\n",
+                  1,
+              ),
+              (
+                  "      context?.markEnded(mediaId);\n      onEnded?.();",
+                  "      setPlaying(false);\n      context?.markEnded(mediaId);\n      onEnded?.();",
+                  1,
+              ),
+              (
+                  "    if (!element) return;\n    if (context) context.stopPlayback(idRef.current, reset);",
+                  "    if (!element) return;\n    setPlaying(false);\n    if (context) context.stopPlayback(idRef.current, reset);",
+                  1,
+              ),
+              (
+                  "{blocked ? 'Audio blocked — tap to enable' : mediaRef.current?.paused ? 'Tap to play' : 'Playing'}",
+                  "{blocked ? 'Audio blocked — tap to enable' : playing ? 'Playing' : 'Tap to play'}",
+                  1,
+              ),
+          ]
+
+          for old, new, expected in replacements:
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'Expected {expected} match(es) for {old!r}, found {count}')
+              text = text.replace(old, new, expected)
+
+          play_call = "element.play().then(() => setBlocked(false)).catch(() => setBlocked(true));"
+          if text.count(play_call) != 2:
+              raise SystemExit(f'Expected 2 playback status calls, found {text.count(play_call)}')
+          text = text.replace(
+              play_call,
+              "element.play().then(() => { setBlocked(false); setPlaying(true); }).catch(() => { setBlocked(true); setPlaying(false); });",
+          )
+
+          p.write_text(text)
+          PY
+
       - name: Install dependencies
         working-directory: accel_preview
         run: npm ci
@@ -36,5 +83,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/lint-audio-feature.yml
-          git commit -m "chore: complete audio feature validation"
+          git add accel_preview/src/lib/audio.tsx
+          git commit -m "fix: finalize audio playback status handling"
           git push origin HEAD:feature/audio-experience-plane
