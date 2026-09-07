@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { 
-  Organization, Location, Screen, Slide, TileInstance, 
+  Organization, Location, Screen, Slide,
   MenuSection, MenuItem, TileTemplate, Campaign 
 } from '../types';
 
