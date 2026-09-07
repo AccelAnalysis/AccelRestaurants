@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import type {
   AudioCoordinationMode,
@@ -10,6 +11,21 @@ import type {
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const APP_VOLUME_KEY = 'accelrestaurants.applicationVolume';
 const APP_MUTE_KEY = 'accelrestaurants.applicationMuted';
+const volumeTimers = new WeakMap<HTMLMediaElement, number>();
+
+type MediaProps = Record<string, unknown>;
+
+const readString = (value: unknown, fallback = '') => typeof value === 'string' ? value : fallback;
+const readNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+const readBoolean = (value: unknown, fallback = false) => {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+};
 
 export const DEFAULT_MEDIA_SCHEDULE: MediaSchedule = {
   enabled: false,
@@ -43,7 +59,7 @@ export function normalizeAudioConfig(config?: Partial<ScreenAudioConfig> | null)
   return {
     ...DEFAULT_SCREEN_AUDIO_CONFIG,
     ...(config || {}),
-    playlist: Array.isArray(config?.playlist) ? config!.playlist : [],
+    playlist: Array.isArray(config?.playlist) ? config.playlist : [],
     schedule: { ...DEFAULT_MEDIA_SCHEDULE, ...(config?.schedule || {}) },
     quietHours: { ...DEFAULT_QUIET_HOURS, ...(config?.quietHours || {}) },
   };
@@ -72,20 +88,24 @@ export function isQuietHours(config: ScreenAudioConfig, now = new Date()) {
   return Boolean(config.quietHours.enabled) && isScheduleActive(config.quietHours, now);
 }
 
-export function scheduleFromTileProps(props: Record<string, any>): MediaSchedule {
-  const rawDays = props.scheduleDays;
-  const days = Array.isArray(rawDays)
-    ? rawDays.map(Number).filter((day: number) => day >= 0 && day <= 6)
-    : String(rawDays ?? '0,1,2,3,4,5,6')
-        .split(',')
-        .map((day) => Number(day.trim()))
-        .filter((day) => Number.isFinite(day) && day >= 0 && day <= 6);
+function parseScheduleDays(value: unknown) {
+  const rawDays = Array.isArray(value)
+    ? value
+    : readString(value, '0,1,2,3,4,5,6').split(',');
 
+  const days = rawDays
+    .map((day) => Number(day))
+    .filter((day) => Number.isFinite(day) && day >= 0 && day <= 6);
+
+  return days.length ? days : [0, 1, 2, 3, 4, 5, 6];
+}
+
+export function scheduleFromTileProps(props: MediaProps): MediaSchedule {
   return {
-    enabled: props.scheduleEnabled === true || props.scheduleEnabled === 'true',
-    startTime: String(props.scheduleStart || '00:00'),
-    endTime: String(props.scheduleEnd || '23:59'),
-    days: days.length ? days : [0, 1, 2, 3, 4, 5, 6],
+    enabled: readBoolean(props.scheduleEnabled),
+    startTime: readString(props.scheduleStart, '00:00'),
+    endTime: readString(props.scheduleEnd, '23:59'),
+    days: parseScheduleDays(props.scheduleDays),
   };
 }
 
@@ -127,7 +147,7 @@ export function ApplicationAudioProvider({ children }: { children: React.ReactNo
 export function useApplicationAudio() {
   const context = React.useContext(ApplicationAudioContext);
   if (!context) {
-    return { volume: 1, muted: false, setVolume: () => {}, setMuted: () => {} };
+    return { volume: 1, muted: false, setVolume: () => undefined, setMuted: () => undefined };
   }
   return context;
 }
@@ -162,11 +182,12 @@ const ScreenAudioContext = React.createContext<ScreenAudioContextValue | null>(n
 
 function rampVolume(element: HTMLMediaElement, target: number, durationMs: number) {
   const safeTarget = clamp(target);
-  const previousTimer = (element as any).__accelVolumeTimer;
-  if (previousTimer) window.clearInterval(previousTimer);
+  const previousTimer = volumeTimers.get(element);
+  if (previousTimer !== undefined) window.clearInterval(previousTimer);
 
   if (!durationMs || durationMs <= 0) {
     element.volume = safeTarget;
+    volumeTimers.delete(element);
     return;
   }
 
@@ -177,10 +198,10 @@ function rampVolume(element: HTMLMediaElement, target: number, durationMs: numbe
     element.volume = clamp(start + (safeTarget - start) * progress);
     if (progress >= 1) {
       window.clearInterval(timer);
-      (element as any).__accelVolumeTimer = null;
+      volumeTimers.delete(element);
     }
   }, 40);
-  (element as any).__accelVolumeTimer = timer;
+  volumeTimers.set(element, timer);
 }
 
 export function ScreenAudioProvider({ screen, children }: { screen: Screen; children: React.ReactNode }) {
@@ -230,7 +251,7 @@ export function ScreenAudioProvider({ screen, children }: { screen: Screen; chil
       if (source.mediaKind === 'video') {
         source.element.muted = !canOutputAudio;
         rampVolume(source.element, targetVolume || clamp(source.sourceVolume), source.fadeInMs);
-        if (source.intendedPlay && source.element.paused) source.element.play().catch(() => {});
+        if (source.intendedPlay && source.element.paused) source.element.play().catch(() => undefined);
         continue;
       }
 
@@ -241,10 +262,9 @@ export function ScreenAudioProvider({ screen, children }: { screen: Screen; chil
 
       source.element.muted = source.forceMuted;
       rampVolume(source.element, targetVolume, source.fadeInMs);
-      if (source.element.paused && !source.element.ended) source.element.play().catch(() => {});
+      if (source.element.paused && !source.element.ended) source.element.play().catch(() => undefined);
     }
 
-    // Pause background elements that have been unregistered from the active set but are still mounted.
     for (const source of background) {
       if (!source.intendedPlay && !source.element.paused) source.element.pause();
     }
@@ -265,7 +285,11 @@ export function ScreenAudioProvider({ screen, children }: { screen: Screen; chil
     source.intendedPlay = false;
     source.element.pause();
     if (reset) {
-      try { source.element.currentTime = 0; } catch { /* metadata not ready */ }
+      try {
+        source.element.currentTime = 0;
+      } catch {
+        // Metadata can be unavailable while a source is still loading.
+      }
     }
     rebalance();
   }, [rebalance]);
@@ -289,13 +313,16 @@ export function ScreenAudioProvider({ screen, children }: { screen: Screen; chil
     return () => window.clearInterval(interval);
   }, [rebalance]);
 
-  const value = React.useMemo(() => ({ config, requestPlayback, stopPlayback, markEnded, unregister, rebalance }), [config, requestPlayback, stopPlayback, markEnded, unregister, rebalance]);
+  const value = React.useMemo(
+    () => ({ config, requestPlayback, stopPlayback, markEnded, unregister, rebalance }),
+    [config, requestPlayback, stopPlayback, markEnded, unregister, rebalance],
+  );
   return <ScreenAudioContext.Provider value={value}>{children}</ScreenAudioContext.Provider>;
 }
 
 type CoordinatedMediaProps = {
   kind: MediaKind;
-  props: Record<string, any>;
+  props: MediaProps;
   role?: SourceRole;
   style?: React.CSSProperties;
   visual?: boolean;
@@ -316,22 +343,38 @@ export function CoordinatedMedia({
 }: CoordinatedMediaProps) {
   const context = React.useContext(ScreenAudioContext);
   const mediaRef = React.useRef<HTMLMediaElement | null>(null);
-  const idRef = React.useRef(sourceId || `media_${Math.random().toString(36).slice(2)}`);
+  const generatedId = React.useId();
+  const idRef = React.useRef(sourceId || `media_${generatedId.replaceAll(':', '')}`);
   const [manualWanted, setManualWanted] = React.useState(false);
   const [blocked, setBlocked] = React.useState(false);
   const wasScheduleActive = React.useRef(false);
   const crossfadeSignaled = React.useRef(false);
-  const schedule = React.useMemo(() => scheduleFromTileProps(props), [props.scheduleEnabled, props.scheduleStart, props.scheduleEnd, props.scheduleDays]);
 
-  const startTime = Math.max(0, Number(props.startTime || 0));
-  const sourceVolume = clamp(Number(props.volume ?? 1));
-  const priority = Number(props.priority ?? (role === 'background' ? 10 : 50));
-  const forceMuted = props.muted === true || props.muted === 'true';
-  const oneShot = props.oneShot === true || props.oneShot === 'true';
-  const autoplay = props.autoplay !== false && props.autoplay !== 'false';
-  const fadeInMs = Math.max(0, Number(props.fadeInMs ?? 0));
-  const fadeOutMs = Math.max(0, Number(props.fadeOutMs ?? 0));
-  const duckBackground = props.duckBackground !== false && props.duckBackground !== 'false';
+  const url = readString(props.url);
+  const startTime = Math.max(0, readNumber(props.startTime));
+  const sourceVolume = clamp(readNumber(props.volume, 1));
+  const priority = readNumber(props.priority, role === 'background' ? 10 : 50);
+  const forceMuted = readBoolean(props.muted);
+  const oneShot = readBoolean(props.oneShot);
+  const autoplay = props.autoplay === undefined ? true : readBoolean(props.autoplay);
+  const fadeInMs = Math.max(0, readNumber(props.fadeInMs));
+  const fadeOutMs = Math.max(0, readNumber(props.fadeOutMs));
+  const duckBackground = props.duckBackground === undefined ? true : readBoolean(props.duckBackground);
+  const loop = readBoolean(props.loop);
+  const trackName = readString(props.trackName, 'Audio Indicator');
+
+  const scheduleEnabled = readBoolean(props.scheduleEnabled);
+  const scheduleStart = readString(props.scheduleStart, '00:00');
+  const scheduleEnd = readString(props.scheduleEnd, '23:59');
+  const scheduleDaysKey = Array.isArray(props.scheduleDays)
+    ? props.scheduleDays.join(',')
+    : readString(props.scheduleDays, '0,1,2,3,4,5,6');
+  const schedule = React.useMemo<MediaSchedule>(() => ({
+    enabled: scheduleEnabled,
+    startTime: scheduleStart,
+    endTime: scheduleEnd,
+    days: parseScheduleDays(scheduleDaysKey),
+  }), [scheduleDaysKey, scheduleEnabled, scheduleEnd, scheduleStart]);
 
   const setStartPosition = React.useCallback(() => {
     const element = mediaRef.current;
@@ -346,7 +389,7 @@ export function CoordinatedMedia({
 
   const begin = React.useCallback(() => {
     const element = mediaRef.current;
-    if (!element || !props.url) return;
+    if (!element || !url) return;
     setStartPosition();
     crossfadeSignaled.current = false;
     if (fadeInMs > 0) element.volume = 0;
@@ -370,7 +413,7 @@ export function CoordinatedMedia({
       element.volume = sourceVolume;
       element.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
     }
-  }, [context, duckBackground, fadeInMs, forceMuted, kind, priority, props.url, role, setStartPosition, sourceVolume]);
+  }, [context, duckBackground, fadeInMs, forceMuted, kind, priority, role, setStartPosition, sourceVolume, url]);
 
   const stop = React.useCallback((reset = false) => {
     const element = mediaRef.current;
@@ -411,9 +454,11 @@ export function CoordinatedMedia({
   React.useEffect(() => {
     const element = mediaRef.current;
     if (!element) return;
+    const mediaId = idRef.current;
+
     const handleLoadedMetadata = () => setStartPosition();
     const handleEnded = () => {
-      context?.markEnded(idRef.current);
+      context?.markEnded(mediaId);
       onEnded?.();
     };
     const handleTimeUpdate = () => {
@@ -424,7 +469,7 @@ export function CoordinatedMedia({
         onCrossfadeStart();
       }
       if (remaining <= fadeOutMs / 1000) {
-        const target = Number(element.dataset.accelTargetVolume ?? element.volume);
+        const target = readNumber(element.dataset.accelTargetVolume, element.volume);
         element.volume = clamp(target * Math.max(0, remaining / (fadeOutMs / 1000)));
       }
     };
@@ -436,7 +481,7 @@ export function CoordinatedMedia({
       element.removeEventListener('loadedmetadata', handleLoadedMetadata);
       element.removeEventListener('ended', handleEnded);
       element.removeEventListener('timeupdate', handleTimeUpdate);
-      context?.unregister(idRef.current);
+      context?.unregister(mediaId);
     };
   }, [context, fadeOutMs, onCrossfadeStart, onEnded, setStartPosition]);
 
@@ -457,7 +502,7 @@ export function CoordinatedMedia({
     });
   }, [context, duckBackground, forceMuted, kind, priority, role, sourceVolume]);
 
-  if (!props.url) {
+  if (!url) {
     if (kind === 'audio' && visual) {
       return (
         <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
@@ -468,19 +513,15 @@ export function CoordinatedMedia({
     return null;
   }
 
-  const commonProps = {
-    ref: (node: HTMLMediaElement | null) => { mediaRef.current = node; },
-    src: String(props.url),
-    preload: 'auto' as const,
-    loop: Boolean(props.loop) && !oneShot,
-    playsInline: true,
-  };
-
   if (kind === 'video') {
     return (
       <video
-        {...commonProps}
+        ref={(node) => { mediaRef.current = node; }}
+        src={url}
+        preload="auto"
+        loop={loop && !oneShot}
         muted={forceMuted}
+        playsInline
         style={style}
       />
     );
@@ -499,11 +540,16 @@ export function CoordinatedMedia({
         }
       } : undefined}
     >
-      <audio {...commonProps} />
+      <audio
+        ref={(node) => { mediaRef.current = node; }}
+        src={url}
+        preload="auto"
+        loop={loop && !oneShot}
+      />
       {visual && (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer' }}>
           <span style={{ fontSize: 28 }}>♫</span>
-          <strong style={{ fontSize: 12 }}>{props.trackName || 'Audio Indicator'}</strong>
+          <strong style={{ fontSize: 12 }}>{trackName}</strong>
           <span style={{ fontSize: 10, opacity: 0.6 }}>{blocked ? 'Audio blocked — tap to enable' : mediaRef.current?.paused ? 'Tap to play' : 'Playing'}</span>
         </div>
       )}
@@ -523,7 +569,7 @@ function makeBackgroundTrack(url: string): GlobalMediaTrack {
   };
 }
 
-function mediaPropsForTrack(track: GlobalMediaTrack, config: ScreenAudioConfig) {
+function mediaPropsForTrack(track: GlobalMediaTrack, config: ScreenAudioConfig): MediaProps {
   return {
     url: track.url,
     volume: track.volume,
@@ -543,7 +589,7 @@ function mediaPropsForTrack(track: GlobalMediaTrack, config: ScreenAudioConfig) 
 }
 
 export function GlobalMediaPlane({ screen }: { screen: Screen }) {
-  const config = normalizeAudioConfig(screen.audioConfig);
+  const config = React.useMemo(() => normalizeAudioConfig(screen.audioConfig), [screen.audioConfig]);
   const allTracks = React.useMemo(() => {
     const tracks = [...config.playlist].filter((track) => Boolean(track.url));
     if (config.backgroundMusic && !tracks.some((track) => track.url === config.backgroundMusic)) {
