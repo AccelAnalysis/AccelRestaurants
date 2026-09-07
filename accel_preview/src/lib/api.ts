@@ -14,7 +14,8 @@ const mapScreen = (s: any): Screen => ({
   transition: s.transition,
   algorithm: s.algorithm,
   customSequence: s.custom_sequence,
-  slides: s.slides
+  slides: s.slides,
+  audioConfig: s.audio_config || undefined
 });
 
 const mapSlide = (s: any, elements: any[]): Slide => ({
@@ -155,7 +156,7 @@ export const api = {
 
     const { data: items } = await supabase
       .from('menu_items')
-      .select('*') // Should filter by org via join, but for now we'll just fetch all sections' items
+      .select('*')
       .in('section_id', (sections || []).map(s => s.id));
 
     return {
@@ -194,7 +195,6 @@ export const api = {
       
     if (error) return null;
     
-    // Create default screen
     const { data: screen } = await supabase
       .from('screens')
       .insert({ location_id: data.id, name: 'Main Screen' })
@@ -220,7 +220,8 @@ export const api = {
       transition: screen.transition,
       algorithm: screen.algorithm,
       custom_sequence: screen.customSequence,
-      slides: screen.slides
+      slides: screen.slides,
+      audio_config: screen.audioConfig || null
     }).eq('id', screen.id);
   },
 
@@ -231,6 +232,7 @@ export const api = {
       .select()
       .single();
 
+    if (error) return null;
     return data ? mapScreen(data) : null;
   },
 
@@ -251,7 +253,6 @@ export const api = {
 
     if (error || !slideData) return null;
 
-    // Insert elements if any
     if (slide.elements && slide.elements.length > 0) {
         await supabase.from('slide_elements').insert(
             slide.elements.map(e => ({
@@ -273,7 +274,6 @@ export const api = {
   },
 
   async updateSlide(slide: Slide): Promise<void> {
-    // Update slide metadata
     await supabase.from('slides').update({
       name: slide.name,
       background: slide.background,
@@ -282,17 +282,11 @@ export const api = {
       duration: slide.duration
     }).eq('id', slide.id);
 
-    // Replace all elements (simplest strategy for now)
     await supabase.from('slide_elements').delete().eq('slide_id', slide.id);
     
     if (slide.elements.length > 0) {
       await supabase.from('slide_elements').insert(
         slide.elements.map(e => ({
-          // If ID is new/temp, let DB generate one? No, we need to keep ID if possible or regenerate.
-          // For simplicity, we let DB generate new IDs for elements on save, 
-          // OR we trust the frontend IDs if they are UUIDs. 
-          // Since frontend uses random string, let's just use the frontend ID if it looks like UUID or let DB gen.
-          // Actually, better to upsert or delete/insert. Delete/insert is easier.
           slide_id: slide.id,
           type: e.type,
           x: e.x,
@@ -386,20 +380,14 @@ export const api = {
       if (!screenData) return null;
       
       const screen = mapScreen(screenData);
-      
-      // Get slides
       const slideIds = screen.algorithm === 'custom' && screen.customSequence ? screen.customSequence : screen.slides;
       
-      // Fetch slides
-      // Note: In production, optimize this to one query
       const slides: Slide[] = [];
       for (const sid of slideIds) {
           const s = await this.getSlide(sid);
           if (s) slides.push(s);
       }
       
-      // Get Org ID to fetch menu (for bindings)
-      // We need to look up location -> org
       const { data: loc } = await supabase.from('locations').select('org_id').eq('id', screen.locationId).single();
       
       let menuItems: MenuItem[] = [];
