@@ -347,6 +347,7 @@ export function CoordinatedMedia({
   const idRef = React.useRef(sourceId || `media_${generatedId.replaceAll(':', '')}`);
   const [manualWanted, setManualWanted] = React.useState(false);
   const [blocked, setBlocked] = React.useState(false);
+  const [playing, setPlaying] = React.useState(false);
   const wasScheduleActive = React.useRef(false);
   const crossfadeSignaled = React.useRef(false);
 
@@ -407,17 +408,18 @@ export function CoordinatedMedia({
         intendedPlay: true,
         fadeInMs,
       });
-      element.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+      element.play().then(() => { setBlocked(false); setPlaying(true); }).catch(() => { setBlocked(true); setPlaying(false); });
     } else {
       element.muted = forceMuted;
       element.volume = sourceVolume;
-      element.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+      element.play().then(() => { setBlocked(false); setPlaying(true); }).catch(() => { setBlocked(true); setPlaying(false); });
     }
   }, [context, duckBackground, fadeInMs, forceMuted, kind, priority, role, setStartPosition, sourceVolume, url]);
 
   const stop = React.useCallback((reset = false) => {
     const element = mediaRef.current;
     if (!element) return;
+    setPlaying(false);
     if (context) context.stopPlayback(idRef.current, reset);
     else {
       element.pause();
@@ -458,6 +460,7 @@ export function CoordinatedMedia({
 
     const handleLoadedMetadata = () => setStartPosition();
     const handleEnded = () => {
+      setPlaying(false);
       context?.markEnded(mediaId);
       onEnded?.();
     };
@@ -550,7 +553,7 @@ export function CoordinatedMedia({
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer' }}>
           <span style={{ fontSize: 28 }}>♫</span>
           <strong style={{ fontSize: 12 }}>{trackName}</strong>
-          <span style={{ fontSize: 10, opacity: 0.6 }}>{blocked ? 'Audio blocked — tap to enable' : mediaRef.current?.paused ? 'Tap to play' : 'Playing'}</span>
+          <span style={{ fontSize: 10, opacity: 0.6 }}>{blocked ? 'Audio blocked — tap to enable' : playing ? 'Playing' : 'Tap to play'}</span>
         </div>
       )}
     </div>
